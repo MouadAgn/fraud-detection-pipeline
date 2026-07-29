@@ -1,0 +1,149 @@
+# ---------------------------------------------------------------------------
+# Databricks Asset Bundle — définition versionnée du pipeline
+# ---------------------------------------------------------------------------
+# Ce fichier décrit l'infrastructure d'exécution du projet : quels traitements,
+# dans quel ordre, à quelle fréquence, avec quelles alertes. Il est versionné
+# au même titre que le code.
+#
+# C'est ce qui distingue un pipeline industrialisé d'un notebook exécuté à la
+# main. Un enchaînement décrit dans l'interface graphique n'existe que dans le
+# workspace : il ne se relit pas, ne se revoit pas en revue de code, ne se
+# rejoue pas sur un autre environnement, et disparaît avec le workspace.
+#
+# Déploiement :
+#     databricks bundle validate
+#     databricks bundle deploy --target dev
+#     databricks bundle run fraud_detection_pipeline
+#
+# Sans CLI Databricks, voir workflows/README.md pour la création équivalente
+# depuis l'interface.
+# ---------------------------------------------------------------------------
+
+bundle:
+  name: fraud-detection-pipeline
+
+variables:
+  catalog:
+    description: Catalogue Unity Catalog cible
+    default: workspace
+  schema:
+    description: Schéma du projet
+    default: fraud_detection
+  notification_email:
+    description: Adresse notifiée en cas d'échec
+    default: aoughanemouad1@gmail.com
+
+targets:
+  dev:
+    mode: development
+    default: true
+    workspace:
+      # Renseigner l'URL du workspace, visible dans la barre d'adresse
+      # Databricks : https://dbc-xxxxxxxx-xxxx.cloud.databricks.com
+      host: ${DATABRICKS_HOST}
+
+resources:
+  jobs:
+    # -----------------------------------------------------------------------
+    # Pipeline de données — quotidien
+    # -----------------------------------------------------------------------
+    # Enchaîne l'ingestion jusqu'au scoring. N'entraîne AUCUN modèle : il
+    # consomme la version portant l'alias `champion`.
+    fraud_detection_pipeline:
+      name: fraud_detection_pipeline
+      description: >-
+        Ingestion, nettoyage, feature engineering et scoring des transactions.
+        Consomme le modèle aliasé champion sans le réentraîner.
+
+      # Un seul run à la fois : deux exécutions simultanées écriraient
+      # concurremment sur les mêmes tables Delta.
+      max_concurrent_runs: 1
+
+      schedule:
+        # Tous les jours à 3 h du matin (heure de Paris).
+        quartz_cron_expression: "0 0 3 * * ?"
+        timezone_id: Europe/Paris
+        pause_status: PAUSED
+
+      email_notifications:
+        on_failure:
+          - ${var.notification_email}
+
+      tasks:
+        # Création idempotente du schéma et du volume. Rend le job capable de
+        # s'exécuter sur un workspace vierge sans préparation manuelle.
+        - task_key: setup
+          notebook_task:
+            notebook_path: ./notebooks/00_setup.py
+
+        - task_key: bronze_ingestion
+          depends_on:
+            - task_key: setup
+          notebook_task:
+            notebook_path: ./notebooks/01_bronze_ingestion.py
+          # Une seule reprise : les échecs de ce pipeline sont des erreurs de
+          # données, pas des incidents transitoires. Réessayer dix fois
+          # masquerait le problème au lieu de le signaler.
+          max_retries: 1
+          min_retry_interval_millis: 60000
+
+        - task_key: silver_cleaning
+          depends_on:
+            - task_key: bronze_ingestion
+          notebook_task:
+            notebook_path: ./notebooks/02_silver_cleaning.py
+          max_retries: 1
+          min_retry_interval_millis: 60000
+
+        - task_key: gold_features
+          depends_on:
+            - task_key: silver_cleaning
+          notebook_task:
+            notebook_path: ./notebooks/03_gold_features.py
+          max_retries: 1
+          min_retry_interval_millis: 60000
+
+        - task_key: scoring
+          depends_on:
+            - task_key: gold_features
+          notebook_task:
+            notebook_path: ./notebooks/05_scoring_eval.py
+          max_retries: 1
+          min_retry_interval_millis: 60000
+
+    # -----------------------------------------------------------------------
+    # Réentraînement du modèle — mensuel
+    # -----------------------------------------------------------------------
+    # Volontairement séparé du pipeline de données : les deux n'ont pas la même
+    # fréquence. Les données arrivent tous les jours, un modèle se réentraîne
+    # quand la population a suffisamment dérivé — typiquement une fois par mois.
+    #
+    # Réentraîner quotidiennement produirait un modèle différent chaque jour,
+    # donc des décisions non reproductibles et des métriques incomparables d'un
+    # jour à l'autre. C'est une confusion fréquente entre pipeline de données et
+    # cycle de vie du modèle.
+    fraud_model_training:
+      name: fraud_model_training
+      description: >-
+        Réentraînement, comparaison des configurations et enregistrement du
+        modèle dans Unity Catalog. Déclenché manuellement ou mensuellement.
+
+      max_concurrent_runs: 1
+
+      schedule:
+        # Le 1er de chaque mois à 2 h.
+        quartz_cron_expression: "0 0 2 1 * ?"
+        timezone_id: Europe/Paris
+        pause_status: PAUSED
+
+      email_notifications:
+        on_failure:
+          - ${var.notification_email}
+
+      tasks:
+        - task_key: model_training
+          notebook_task:
+            notebook_path: ./notebooks/04_model_training.py
+          # Aucune reprise : un entraînement dure une vingtaine de minutes et
+          # échoue pour des raisons qu'une nouvelle tentative ne corrigera pas.
+          max_retries: 0
