@@ -78,7 +78,12 @@
             "name": "titre",
             "textbox_spec": "# Détection de fraude — suivi du taux de faux positifs\n\nMesures établies sur le **bloc de test** : 555 719 transactions du second semestre 2020, jamais vues par le modèle. Les périodes d'entraînement et de validation sont exclues — les métriques calculées dessus seraient optimistes par construction."
           },
-          "position": { "x": 0, "y": 0, "width": 6, "height": 3 }
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 6,
+            "height": 3
+          }
         },
         {
           "widget": {
@@ -89,7 +94,10 @@
                 "query": {
                   "datasetName": "indicateurs_cles",
                   "fields": [
-                    { "name": "taux_faux_positifs_pct", "expression": "`taux_faux_positifs_pct`" }
+                    {
+                      "name": "taux_faux_positifs_pct",
+                      "expression": "`taux_faux_positifs_pct`"
+                    }
                   ],
                   "disaggregated": true
                 }
@@ -106,7 +114,12 @@
               }
             }
           },
-          "position": { "x": 0, "y": 3, "width": 3, "height": 4 }
+          "position": {
+            "x": 0,
+            "y": 3,
+            "width": 3,
+            "height": 4
+          }
         },
         {
           "widget": {
@@ -116,7 +129,12 @@
                 "name": "main_query",
                 "query": {
                   "datasetName": "indicateurs_cles",
-                  "fields": [{ "name": "rappel_pct", "expression": "`rappel_pct`" }],
+                  "fields": [
+                    {
+                      "name": "rappel_pct",
+                      "expression": "`rappel_pct`"
+                    }
+                  ],
                   "disaggregated": true
                 }
               }
@@ -125,11 +143,19 @@
               "version": 2,
               "widgetType": "counter",
               "encodings": {
-                "value": { "fieldName": "rappel_pct", "displayName": "Fraudes détectées (%)" }
+                "value": {
+                  "fieldName": "rappel_pct",
+                  "displayName": "Fraudes détectées (%)"
+                }
               }
             }
           },
-          "position": { "x": 3, "y": 3, "width": 3, "height": 4 }
+          "position": {
+            "x": 3,
+            "y": 3,
+            "width": 3,
+            "height": 4
+          }
         },
         {
           "widget": {
@@ -140,7 +166,10 @@
                 "query": {
                   "datasetName": "indicateurs_cles",
                   "fields": [
-                    { "name": "alertes_par_fraude", "expression": "`alertes_par_fraude`" }
+                    {
+                      "name": "alertes_par_fraude",
+                      "expression": "`alertes_par_fraude`"
+                    }
                   ],
                   "disaggregated": true
                 }
@@ -157,7 +186,12 @@
               }
             }
           },
-          "position": { "x": 0, "y": 7, "width": 3, "height": 4 }
+          "position": {
+            "x": 0,
+            "y": 7,
+            "width": 3,
+            "height": 4
+          }
         },
         {
           "widget": {
@@ -167,7 +201,12 @@
                 "name": "main_query",
                 "query": {
                   "datasetName": "indicateurs_cles",
-                  "fields": [{ "name": "faux_positifs", "expression": "`faux_positifs`" }],
+                  "fields": [
+                    {
+                      "name": "faux_positifs",
+                      "expression": "`faux_positifs`"
+                    }
+                  ],
                   "disaggregated": true
                 }
               }
@@ -176,11 +215,19 @@
               "version": 2,
               "widgetType": "counter",
               "encodings": {
-                "value": { "fieldName": "faux_positifs", "displayName": "Fausses alertes" }
+                "value": {
+                  "fieldName": "faux_positifs",
+                  "displayName": "Fausses alertes"
+                }
               }
             }
           },
-          "position": { "x": 3, "y": 7, "width": 3, "height": 4 }
+          "position": {
+            "x": 3,
+            "y": 7,
+            "width": 3,
+            "height": 4
+          }
         },
         {
           "widget": {
@@ -191,8 +238,14 @@
                 "query": {
                   "datasetName": "evolution_hebdomadaire",
                   "fields": [
-                    { "name": "semaine", "expression": "`semaine`" },
-                    { "name": "taux_faux_positifs_pct", "expression": "`taux_faux_positifs_pct`" }
+                    {
+                      "name": "semaine",
+                      "expression": "`semaine`"
+                    },
+                    {
+                      "name": "taux_faux_positifs_pct",
+                      "expression": "`taux_faux_positifs_pct`"
+                    }
                   ],
                   "disaggregated": true
                 }
@@ -210,18 +263,27 @@
               "encodings": {
                 "x": {
                   "fieldName": "semaine",
-                  "scale": { "type": "temporal" },
+                  "scale": {
+                    "type": "temporal"
+                  },
                   "displayName": "Semaine"
                 },
                 "y": {
                   "fieldName": "taux_faux_positifs_pct",
-                  "scale": { "type": "quantitative" },
+                  "scale": {
+                    "type": "quantitative"
+                  },
                   "displayName": "Taux de faux positifs (%)"
                 }
               }
             }
           },
-          "position": { "x": 0, "y": 11, "width": 6, "height": 8 }
+          "position": {
+            "x": 0,
+            "y": 11,
+            "width": 6,
+            "height": 8
+          }
         },
         {
           "widget": {
@@ -232,8 +294,14 @@
                 "query": {
                   "datasetName": "evolution_hebdomadaire",
                   "fields": [
-                    { "name": "semaine", "expression": "`semaine`" },
-                    { "name": "rappel_pct", "expression": "`rappel_pct`" }
+                    {
+                      "name": "semaine",
+                      "expression": "`semaine`"
+                    },
+                    {
+                      "name": "rappel_pct",
+                      "expression": "`rappel_pct`"
+                    }
                   ],
                   "disaggregated": true
                 }
@@ -251,18 +319,27 @@
               "encodings": {
                 "x": {
                   "fieldName": "semaine",
-                  "scale": { "type": "temporal" },
+                  "scale": {
+                    "type": "temporal"
+                  },
                   "displayName": "Semaine"
                 },
                 "y": {
                   "fieldName": "rappel_pct",
-                  "scale": { "type": "quantitative" },
+                  "scale": {
+                    "type": "quantitative"
+                  },
                   "displayName": "Rappel (%)"
                 }
               }
             }
           },
-          "position": { "x": 0, "y": 19, "width": 6, "height": 8 }
+          "position": {
+            "x": 0,
+            "y": 19,
+            "width": 6,
+            "height": 8
+          }
         },
         {
           "widget": {
@@ -273,8 +350,14 @@
                 "query": {
                   "datasetName": "faux_positifs_par_categorie",
                   "fields": [
-                    { "name": "categorie", "expression": "`categorie`" },
-                    { "name": "faux_positifs", "expression": "`faux_positifs`" }
+                    {
+                      "name": "categorie",
+                      "expression": "`categorie`"
+                    },
+                    {
+                      "name": "faux_positifs",
+                      "expression": "`faux_positifs`"
+                    }
                   ],
                   "disaggregated": true
                 }
@@ -292,18 +375,27 @@
               "encodings": {
                 "x": {
                   "fieldName": "faux_positifs",
-                  "scale": { "type": "quantitative" },
+                  "scale": {
+                    "type": "quantitative"
+                  },
                   "displayName": "Fausses alertes"
                 },
                 "y": {
                   "fieldName": "categorie",
-                  "scale": { "type": "categorical" },
+                  "scale": {
+                    "type": "categorical"
+                  },
                   "displayName": "Catégorie"
                 }
               }
             }
           },
-          "position": { "x": 0, "y": 27, "width": 6, "height": 8 }
+          "position": {
+            "x": 0,
+            "y": 27,
+            "width": 6,
+            "height": 8
+          }
         },
         {
           "widget": {
@@ -314,13 +406,34 @@
                 "query": {
                   "datasetName": "file_alertes",
                   "fields": [
-                    { "name": "horodatage", "expression": "`horodatage`" },
-                    { "name": "montant", "expression": "`montant`" },
-                    { "name": "categorie", "expression": "`categorie`" },
-                    { "name": "ecart_habitudes", "expression": "`ecart_habitudes`" },
-                    { "name": "txn_derniere_heure", "expression": "`txn_derniere_heure`" },
-                    { "name": "score", "expression": "`score`" },
-                    { "name": "issue", "expression": "`issue`" }
+                    {
+                      "name": "horodatage",
+                      "expression": "`horodatage`"
+                    },
+                    {
+                      "name": "montant",
+                      "expression": "`montant`"
+                    },
+                    {
+                      "name": "categorie",
+                      "expression": "`categorie`"
+                    },
+                    {
+                      "name": "ecart_habitudes",
+                      "expression": "`ecart_habitudes`"
+                    },
+                    {
+                      "name": "txn_derniere_heure",
+                      "expression": "`txn_derniere_heure`"
+                    },
+                    {
+                      "name": "score",
+                      "expression": "`score`"
+                    },
+                    {
+                      "name": "issue",
+                      "expression": "`issue`"
+                    }
                   ],
                   "disaggregated": true
                 }
@@ -337,18 +450,210 @@
               },
               "encodings": {
                 "columns": [
-                  { "fieldName": "horodatage", "displayName": "Horodatage", "type": "datetime" },
-                  { "fieldName": "montant", "displayName": "Montant ($)", "type": "float" },
-                  { "fieldName": "categorie", "displayName": "Catégorie", "type": "string" },
-                  { "fieldName": "ecart_habitudes", "displayName": "Écart aux habitudes (σ)", "type": "float" },
-                  { "fieldName": "txn_derniere_heure", "displayName": "Txn dernière heure", "type": "integer" },
-                  { "fieldName": "score", "displayName": "Score", "type": "float" },
-                  { "fieldName": "issue", "displayName": "Issue réelle", "type": "string" }
+                  {
+                    "fieldName": "horodatage",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "datetime",
+                    "displayAs": "datetime",
+                    "visible": true,
+                    "order": 0,
+                    "title": "Horodatage",
+                    "allowSearch": false,
+                    "alignContent": "left",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "horodatage"
+                  },
+                  {
+                    "fieldName": "montant",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 1,
+                    "title": "Montant ($)",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "montant"
+                  },
+                  {
+                    "fieldName": "categorie",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 2,
+                    "title": "Categorie",
+                    "allowSearch": false,
+                    "alignContent": "left",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "categorie"
+                  },
+                  {
+                    "fieldName": "ecart_habitudes",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 3,
+                    "title": "Ecart aux habitudes",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "ecart_habitudes"
+                  },
+                  {
+                    "fieldName": "txn_derniere_heure",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "integer",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 4,
+                    "title": "Txn derniere heure",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "txn_derniere_heure"
+                  },
+                  {
+                    "fieldName": "score",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 5,
+                    "title": "Score",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "score"
+                  },
+                  {
+                    "fieldName": "issue",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 6,
+                    "title": "Issue reelle",
+                    "allowSearch": false,
+                    "alignContent": "left",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "issue"
+                  }
                 ]
-              }
+              },
+              "allowHTMLByDefault": false,
+              "itemsPerPage": 25,
+              "paginationSize": 25,
+              "condensed": true,
+              "withRowNumber": false
             }
           },
-          "position": { "x": 0, "y": 35, "width": 6, "height": 10 }
+          "position": {
+            "x": 0,
+            "y": 35,
+            "width": 6,
+            "height": 10
+          }
         }
       ]
     }
