@@ -66,8 +66,8 @@ Récupération des données : [data/README.md](data/README.md)
 | Étape | Livrable | État |
 | --- | --- | :---: |
 | 0 — Mise en place | Structure du dépôt, acquisition et profilage des données | ✅ |
-| 1 — Bronze | Ingestion Delta fidèle à la source | 🔨 |
-| 2 — Silver | Typage, contrôles qualité, pseudonymisation RGPD | ⏳ |
+| 1 — Bronze | Ingestion Delta fidèle à la source — 1 852 394 lignes réconciliées | ✅ |
+| 2 — Silver | Typage, contrôles qualité, pseudonymisation RGPD | 🔨 |
 | 3 — Gold | Variables comportementales (window functions) | ⏳ |
 | 4 — Modèle | XGBoost + SMOTE, comparaison, seuil, SHAP | ⏳ |
 | 5 — Scoring | Table scorée et métriques d'évaluation | ⏳ |
@@ -79,10 +79,14 @@ Récupération des données : [data/README.md](data/README.md)
 
 Chaque étape fait l'objet d'une note expliquant les choix techniques et leur justification — voir **[docs/memoire/](docs/memoire/README.md)**.
 
-Deux notes disponibles à ce stade :
+Notes disponibles à ce stade :
 
 - **[00 — Contexte et choix des données](docs/memoire/00_contexte_et_donnees.md)** — pourquoi un corpus public, comparaison de trois jeux de données candidats, position RGPD.
 - **[01 — Profilage initial](docs/memoire/01_profilage_initial.md)** — sept constats mesurés qui spécifient le pipeline, dont une incohérence de données détectée par contrôle croisé et une variable préconisée puis écartée sur preuve.
+- **[02 — Ingestion Bronze](docs/memoire/02_ingestion_bronze.md)** — schéma explicite, validation d'en-tête, idempotence et non-partitionnement justifié.
+- **[03 — Qualité et conformité Silver](docs/memoire/03_qualite_silver.md)** — règles de qualité et quarantaine, réparation des codes postaux, pseudonymisation salée.
+
+Le **[dictionnaire de données](docs/dictionnaire_donnees.md)** décrit en français chacune des 26 colonnes de la couche Silver. Il est généré depuis le code, jamais rédigé à la main.
 
 ## Structure du dépôt
 
@@ -90,14 +94,19 @@ Deux notes disponibles à ce stade :
 fraud-detection-pipeline/
 ├── docs/
 │   ├── architecture.md          # architecture, décisions, contraintes anti-fuite
+│   ├── dictionnaire_donnees.md  # dictionnaire de données FR (généré depuis le code)
 │   └── memoire/                 # notes justificatives par étape (FR)
 ├── data/                        # jeu de données (non versionné)
-├── notebooks/                   # 01_bronze → 05_scoring, exécutés sur Databricks
+├── notebooks/                   # 00_setup → 05_scoring, exécutés sur Databricks
 ├── src/fraud/                   # code réutilisable et testable
-│   └── config.py                # nomenclature Unity Catalog centralisée
+│   ├── config.py                # nomenclature Unity Catalog centralisée
+│   ├── schemas.py               # contrat de données de la source
+│   ├── quality.py               # moteur de règles qualité et quarantaine
+│   └── silver.py                # transformation Bronze → Silver
 ├── scripts/
 │   ├── download_dataset.ps1     # acquisition reproductible des données
-│   └── profile_dataset.py       # profilage — produit les chiffres des notes
+│   ├── profile_dataset.py       # profilage — produit les chiffres des notes
+│   └── generate_data_dictionary.py  # génère le dictionnaire depuis silver.py
 ├── tests/                       # tests unitaires des fonctions de src/
 ├── workflows/                   # définition du job Databricks orchestré
 ├── dashboards/                  # requêtes SQL et captures du dashboard

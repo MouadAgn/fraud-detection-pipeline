@@ -16,7 +16,7 @@ rejouable.
 | [00 — Contexte et choix des données](00_contexte_et_donnees.md) | Étape 0 | Partie 2 — corpus, conformité RGPD | ✅ |
 | [01 — Profilage initial des données](01_profilage_initial.md) | Étape 0 | Partie 2 — analyse exploratoire · Partie 3 — bilan critique | ✅ |
 | [02 — Ingestion Bronze](02_ingestion_bronze.md) | Étape 1 | Partie 2 — chaîne de traitement | ✅ |
-| 03 — Qualité et conformité Silver | Étape 2 | Partie 2 — data cleaning | ⏳ |
+| [03 — Qualité et conformité Silver](03_qualite_silver.md) | Étape 2 | Partie 2 — data cleaning | ✅ |
 | 04 — Feature engineering Gold | Étape 3 | Partie 2 — variables explicatives | ⏳ |
 | 05 — Modélisation et comparaison | Étape 4 | Partie 2 — choix de l'algorithme | ⏳ |
 | 06 — Seuil de décision et faux positifs | Étape 4 | Partie 3 — arbitrage précision/rappel | ⏳ |

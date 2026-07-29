@@ -69,6 +69,26 @@ AMOUNT_COL: str = "amt"  # montant de la transaction
 TRANSACTION_ID_COL: str = "trans_num"  # identifiant unique de transaction
 
 # ---------------------------------------------------------------------------
+# Pseudonymisation (couche Silver)
+# ---------------------------------------------------------------------------
+# Sel utilisé pour le hachage du numéro de carte.
+#
+# Sans sel, le haché d'un numéro de carte est reconstituable par force brute :
+# l'espace des numéros valides est contraint (préfixes émetteurs, longueur fixe,
+# clé de Luhn), et quiconque disposerait de la table pourrait retrouver les
+# numéros d'origine. Le hachage seul ne constitue donc pas une pseudonymisation
+# au sens de l'article 4(5) du RGPD.
+#
+# LIMITE ASSUMÉE : ce sel figure en clair dans le dépôt. C'est acceptable ici
+# car le jeu de données est intégralement synthétique — aucun numéro de carte
+# réel n'est concerné. Sur des données de production, il devrait provenir d'un
+# secret scope Databricks (`dbutils.secrets.get`), faute de quoi la
+# pseudonymisation serait réversible par toute personne ayant accès au code.
+# La variable d'environnement permet précisément cette substitution sans
+# modifier une ligne du pipeline.
+PSEUDONYM_SALT: str = os.getenv("FRAUD_PSEUDONYM_SALT", "mia26-fraud-detection")
+
+# ---------------------------------------------------------------------------
 # MLflow
 # ---------------------------------------------------------------------------
 MLFLOW_EXPERIMENT: str = os.getenv(

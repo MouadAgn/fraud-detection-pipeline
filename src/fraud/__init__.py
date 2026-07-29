@@ -2,9 +2,10 @@
 
 Ce paquet contient la logique métier *testable*, séparée des notebooks :
 
-- ``config``   : nomenclature Unity Catalog et colonnes clés
-- ``schemas``  : schémas Spark explicites des tables (étape 1)
-- ``quality``  : règles de contrôle qualité et de quarantaine (étape 2)
+- ``config``   : nomenclature Unity Catalog, colonnes clés, sel de pseudonymisation
+- ``schemas``  : schéma Spark explicite et contrat de données de la source (étape 1)
+- ``quality``  : moteur générique de règles de qualité et de quarantaine
+- ``silver``   : transformation Bronze → Silver, règles et dictionnaire (étape 2)
 - ``features`` : construction des variables comportementales (étape 3)
 
 Pourquoi séparer le code des notebooks ? Parce qu'un notebook n'est pas
