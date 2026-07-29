@@ -575,7 +575,9 @@ print(f"  moyenne   : {float(np.mean(all_runs)):.4f}")
 
 # Sélection explicite plutôt qu'un `max()` sur une métrique : le choix engage un
 # arbitrage entre performance et robustesse, qui ne se réduit pas à un scalaire.
-FINAL_MODEL = "xgb_sans_reequilibrage"
+# La constante vit dans `config` pour que le notebook de scoring puisse vérifier
+# qu'il charge bien ce modèle-là et non un candidat écarté.
+FINAL_MODEL = config.FINAL_MODEL_NAME
 
 all_results = results + rebalancing_results + lightgbm_results
 final = next((r for r in all_results if r["model"] == FINAL_MODEL), None)

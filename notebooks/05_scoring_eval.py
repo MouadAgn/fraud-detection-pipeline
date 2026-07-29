@@ -72,10 +72,72 @@ print(config.describe())
 
 # COMMAND ----------
 
+from mlflow import MlflowClient
+
+client = MlflowClient()
+
+
+def resolve_champion_version() -> str:
+    """Retourne la version portant l'alias, en la posant si elle manque.
+
+    L'alias peut ne pas exister — notamment si le notebook d'entraînement a été
+    exécuté avant son introduction. Plutôt que d'échouer, on retombe sur la
+    version la plus récente du registre et on pose l'alias dessus, ce qui rend
+    ce notebook exécutable seul.
+    """
+    try:
+        version = client.get_model_version_by_alias(
+            config.REGISTERED_MODEL_NAME, config.MODEL_ALIAS
+        )
+        print(f"Alias '{config.MODEL_ALIAS}' -> version {version.version}")
+        return version.version
+    except Exception:
+        print(f"Alias '{config.MODEL_ALIAS}' absent : reprise sur la dernière version.")
+
+    versions = client.search_model_versions(f"name = '{config.REGISTERED_MODEL_NAME}'")
+    if not versions:
+        raise RuntimeError(
+            f"Aucune version enregistrée pour {config.REGISTERED_MODEL_NAME}. "
+            "Exécuter d'abord le notebook 04_model_training."
+        )
+
+    latest = max(versions, key=lambda v: int(v.version))
+    client.set_registered_model_alias(
+        config.REGISTERED_MODEL_NAME, config.MODEL_ALIAS, latest.version
+    )
+    print(f"Alias '{config.MODEL_ALIAS}' posé sur la version {latest.version}.")
+    return latest.version
+
+
+champion_version = resolve_champion_version()
+
+# --- Vérification : est-ce bien le modèle retenu à l'étape 4 ? -------------
+# Le registre contient aussi les candidats écartés. Scorer avec l'un d'eux
+# passerait totalement inaperçu : le notebook s'exécuterait, produirait des
+# métriques plausibles, et le mémoire annoncerait les performances d'un modèle
+# qui n'est pas celui qu'il décrit.
+version_info = client.get_model_version(config.REGISTERED_MODEL_NAME, champion_version)
+registered_algorithm = version_info.tags.get("algorithm")
+
+print(f"Configuration enregistrée : {registered_algorithm or 'non renseignée'}")
+print(f"Configuration attendue    : {config.FINAL_MODEL_NAME}")
+
+if registered_algorithm and registered_algorithm != config.FINAL_MODEL_NAME:
+    raise ValueError(
+        f"La version {champion_version} correspond à '{registered_algorithm}', "
+        f"alors que le modèle retenu est '{config.FINAL_MODEL_NAME}'.\n"
+        "Réexécuter la section 5 du notebook 04_model_training pour enregistrer "
+        "et aliaser la bonne configuration."
+    )
+if not registered_algorithm:
+    print("AVERTISSEMENT : version sans étiquette 'algorithm', vérification impossible.")
+
+# COMMAND ----------
+
 model_uri = f"models:/{config.REGISTERED_MODEL_NAME}@{config.MODEL_ALIAS}"
 model = mlflow.sklearn.load_model(model_uri)
 
-print(f"Modèle chargé : {model_uri}")
+print(f"Modèle chargé : {model_uri}  (version {champion_version})")
 print(f"Étapes du pipeline : {list(model.named_steps)}")
 
 # COMMAND ----------

@@ -122,6 +122,12 @@ REGISTERED_MODEL_NAME: str = fqn("fraud_detection_model")
 # modèle revient alors à déplacer l'alias, sans toucher au code en aval.
 MODEL_ALIAS: str = "champion"
 
+# Configuration retenue à l'issue de la comparaison (étape 4). Déclarée ici
+# pour que le notebook de scoring puisse VÉRIFIER qu'il charge bien le modèle
+# attendu : le registre contient aussi les candidats écartés, et rien
+# n'empêcherait de scorer avec l'un d'eux sans s'en apercevoir.
+FINAL_MODEL_NAME: str = "xgb_sans_reequilibrage"
+
 # ---------------------------------------------------------------------------
 # Modèle de coût métier (étape 5)
 # ---------------------------------------------------------------------------
