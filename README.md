@@ -66,7 +66,7 @@ Récupération des données : [data/README.md](data/README.md)
 | Étape | Livrable | État |
 | --- | --- | :---: |
 | 0 — Mise en place | Structure du dépôt, acquisition et profilage des données | ✅ |
-| 1 — Bronze | Ingestion Delta fidèle à la source | ⏳ |
+| 1 — Bronze | Ingestion Delta fidèle à la source | 🔨 |
 | 2 — Silver | Typage, contrôles qualité, pseudonymisation RGPD | ⏳ |
 | 3 — Gold | Variables comportementales (window functions) | ⏳ |
 | 4 — Modèle | XGBoost + SMOTE, comparaison, seuil, SHAP | ⏳ |
