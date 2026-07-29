@@ -136,9 +136,114 @@ py -3.13 -m pytest tests/ -v
 
 ## 10. Résultats
 
-> ⏳ *À compléter après exécution du notebook : tableau comparatif des quatre modèles, comparatif des stratégies de rééquilibrage, modèle retenu et gain sur la référence logistique.*
+Toutes les valeurs sont mesurées sur le **bloc de validation**, au seuil arbitraire de 0,5. Le bloc de test n'a pas été consulté.
+
+### 10.1 Comparaison des algorithmes
+
+À rééquilibrage constant (SMOTE 5 %).
+
+| Modèle | AUC-PR | AUC-ROC | Précision | Rappel | F1 | TFP |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| LightGBM | **0,9834** | 0,9995 | 0,9809 | 0,9295 | 0,9545 | 0,0001 |
+| XGBoost | 0,9761 | 0,9994 | 0,9795 | 0,9037 | 0,9401 | 0,0001 |
+| Forêt aléatoire | 0,9060 | 0,9936 | 0,9517 | 0,7455 | 0,8361 | 0,0002 |
+| Régression logistique | 0,5479 | 0,9791 | 0,6206 | 0,6793 | 0,6486 | 0,0024 |
+
+**La hiérarchie est nette** : boosting ≫ forêt ≫ linéaire. Le gain du meilleur modèle sur la référence logistique atteint **+79,5 % d'AUC-PR**, ce qui justifie le recours à un modèle complexe. La forêt aléatoire, non linéaire mais sans boosting, reste en retrait de huit points : c'est bien le boosting, et non la seule non-linéarité, qui fait la différence.
+
+### 10.2 La régression logistique démontre pourquoi l'AUC-ROC est trompeuse
+
+C'est le résultat le plus instructif du tableau, et il illustre en conditions réelles l'argument développé au § 6.
+
+| | Régression logistique |
+| --- | ---: |
+| AUC-ROC | **0,9791** — laisse croire à un excellent modèle |
+| AUC-PR | **0,5479** — révèle un modèle médiocre |
+| Taux de faux positifs | **0,0024**, soit **24 fois** celui des modèles à boosting |
+
+Les deux métriques portent sur les **mêmes prédictions**. Un projet qui se serait contenté de l'AUC-ROC aurait conclu que la régression logistique convenait — et aurait déployé un modèle produisant vingt-quatre fois plus de fausses alertes.
+
+### 10.3 Plan complet : deux algorithmes × quatre stratégies de rééquilibrage
+
+AUC-PR mesurée en validation.
+
+| Stratégie | XGBoost | LightGBM | Écart |
+| --- | ---: | ---: | ---: |
+| Aucune | **0,9805** | 0,9767 | −0,0038 |
+| `scale_pos_weight` | 0,9788 | 0,9776 | −0,0012 |
+| SMOTE 2 % | 0,9761 | **0,5658** | **−0,4103** |
+| SMOTE 20 % | 0,9738 | **0,9842** | +0,0104 |
+
+**Le rééquilibrage n'améliore rien chez XGBoost — il dégrade.** La décroissance est monotone : aucun rééquilibrage (0,9805) > `scale_pos_weight` (0,9788) > SMOTE 2 % (0,9761) > SMOTE 20 % (0,9738).
+
+Le résultat mérite d'être formulé précisément, car il est plus profond qu'il n'y paraît : l'AUC-PR est **indépendante du seuil**. Sa dégradation signifie que le rééquilibrage n'améliore pas la capacité du modèle à ordonner les transactions du plus au moins suspect. Il **déplace simplement le point de fonctionnement** — ce que le réglage du seuil de décision accomplit sans fabriquer de données synthétiques ni distordre la distribution d'apprentissage.
+
+SMOTE, annoncé dans la méthodologie initiale, a donc été testé sur quatre configurations puis **écarté sur preuve**. C'est un résultat, non un renoncement : l'appliquer par réflexe aurait dégradé la performance sans que rien ne le signale.
+
+### 10.4 L'arbitrage rendu visible
+
+La ligne `scale_pos_weight` de XGBoost isole parfaitement le compromis au cœur du mémoire.
+
+| | Sans rééquilibrage | Avec `scale_pos_weight` |
+| --- | ---: | ---: |
+| Rappel | 0,9037 | **0,9751** |
+| Précision | 0,9813 | **0,7735** |
+| Taux de faux positifs | 0,0001 | **0,0017** — **× 17** |
+
+Sept points de fraudes détectées en plus, au prix de **dix-sept fois plus de fausses alertes**.
+
+### 10.5 Le plan à un facteur à la fois avait un angle mort
+
+Les deux premières comparaisons procédaient à un facteur constant : les algorithmes à rééquilibrage fixe, puis les rééquilibrages à algorithme fixe. Les tendances observées — LightGBM devant XGBoost, absence de rééquilibrage devant SMOTE — désignaient *LightGBM sans rééquilibrage* comme combinaison la plus prometteuse. Elle ne figurait dans aucun des deux tableaux.
+
+Le plan a donc été complété. **L'hypothèse s'est révélée fausse** : LightGBM sans rééquilibrage arrive cinquième (0,9767), derrière XGBoost sans rééquilibrage (0,9805).
+
+L'épisode a valeur méthodologique : un plan à un facteur à la fois est lisible mais incomplet, et rien ne garantit que la combinaison retenue soit la meilleure si on ne balaie pas la grille.
+
+### 10.6 Stabilité : le critère que le classement par score ignore
+
+Le plan complet fait apparaître une anomalie — `lgbm_smote_02` voit son AUC-PR s'effondrer à 0,57 alors que son AUC-ROC reste à 0,978. Une seule modification du taux de rééquilibrage suffit à faire basculer le modèle.
+
+| Algorithme | Min | Max | Amplitude | Écart-type |
+| --- | ---: | ---: | ---: | ---: |
+| **XGBoost** | 0,9738 | 0,9805 | **0,0068** | 0,0026 |
+| LightGBM | 0,5658 | 0,9842 | **0,4184** | 0,1792 |
+
+**L'amplitude de LightGBM est soixante et une fois supérieure à celle de XGBoost.**
+
+Un second constat s'y ajoute, découvert en réexécutant la grille : la configuration `lgbm_smote_02` a produit **0,6026 au premier passage et 0,5658 au second**, à graine, code et données identiques. LightGBM n'est pas déterministe en multithread par défaut — la construction des histogrammes dépend de l'ordonnancement des fils d'exécution, et `deterministic=True` est nécessaire pour l'y contraindre.
+
+Ce n'est plus seulement de l'instabilité entre configurations, c'est un défaut de **reproductibilité**, rédhibitoire pour un travail dont chaque chiffre doit être rejouable. XGBoost a restitué exactement 0,9805 aux deux passages.
+
+### 10.7 Modèle retenu
+
+Retenir mécaniquement le meilleur AUC-PR conduirait à `lgbm_smote_20` (0,9842). Ce serait une erreur : ce point est le maximum d'une famille dont l'amplitude dépasse 0,41 et dont les résultats ne se reproduisent pas à l'identique.
+
+**Modèle retenu : XGBoost sans rééquilibrage.**
+
+| Critère | Valeur |
+| --- | --- |
+| AUC-PR (validation) | 0,9805 — à **0,37 %** du meilleur score absolu |
+| AUC-ROC (validation) | 0,9996 |
+| Précision | **0,9813 — la meilleure des douze combinaisons** |
+| Taux de faux positifs | **0,0001 — le plus bas du plan** |
+| Amplitude sur les configurations | 0,0068 |
+| Reproductibilité | exacte entre deux exécutions |
+
+Le renoncement à 0,37 % de performance achète la robustesse, la reproductibilité, la meilleure précision et le plus bas taux de faux positifs du plan. Il supprime en outre la génération de données synthétiques : moins d'hypothèses, entraînement plus rapide, comportement plus simple à expliquer devant un régulateur.
+
+### 10.8 Réserve sur le niveau absolu des performances
+
+Une AUC-PR de 0,98 est **hors de portée d'un système de détection de fraude réel**, qui se situe plutôt entre 0,4 et 0,7. Ces valeurs constituent une **borne supérieure optimiste**, imputable à la régularité des règles de génération du corpus simulé — trois artefacts en ont été identifiés et mesurés dès le profilage (note [01](01_profilage_initial.md)) : concentration horaire trop nette, plafonnement des montants frauduleux, et un z-score de montant très séparateur.
+
+Ces métriques servent donc à **comparer les modèles entre eux**, ce pour quoi elles sont valides, et non à annoncer une performance transposable en production.
 
 ---
 
 **À retenir pour la soutenance**
-**Trois blocs et non deux** : le seuil de décision est un paramètre, le choisir sur le test rendrait optimiste le chiffre même que le mémoire prétend mesurer. **L'AUC-PR et non l'AUC-ROC** : à 0,4 % de positifs, l'AUC-ROC reste élevée alors que la précision s'effondre. **Pas de rééquilibrage à 50/50** : apprendre au modèle que la fraude est un événement sur deux le rend hypersensible et multiplie les fausses alertes — l'inverse exact de l'objectif poursuivi.
+
+**L'AUC-ROC est trompeuse, et vos propres chiffres le prouvent.** La régression logistique affiche 0,9791 d'AUC-ROC et 0,5479 d'AUC-PR sur les mêmes prédictions, avec vingt-quatre fois plus de fausses alertes que le modèle retenu. Un projet qui s'en serait tenu à l'AUC-ROC aurait conclu qu'elle convenait.
+
+**SMOTE a été testé puis écarté sur preuve.** Sur quatre configurations, le rééquilibrage dégrade l'AUC-PR de façon monotone. Comme cette métrique est indépendante du seuil, sa dégradation démontre que le rééquilibrage n'améliore pas la capacité du modèle à ordonner les transactions : il déplace le point de fonctionnement, ce que le réglage du seuil accomplit sans fabriquer de données synthétiques.
+
+**XGBoost est retenu sur sa robustesse, pas sur son score.** LightGBM le devance de 0,37 %, mais son amplitude sur les quatre configurations atteint 0,4184 contre 0,0068 — soit soixante et une fois plus — et il ne reproduit pas ses résultats à graine constante. Un modèle qui ne tient que sur un réglage précis est un risque en production, où les données dérivent sans que personne ne réajuste.

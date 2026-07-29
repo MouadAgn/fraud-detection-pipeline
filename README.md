@@ -69,7 +69,7 @@ Récupération des données : [data/README.md](data/README.md)
 | 1 — Bronze | Ingestion Delta fidèle à la source — 1 852 394 lignes réconciliées | ✅ |
 | 2 — Silver | Typage, contrôles qualité, pseudonymisation RGPD — 0 % de rejet, 116 389 codes postaux réparés | ✅ |
 | 3 — Gold | Variables comportementales (window functions) — 20 variables, 0 fuite temporelle | ✅ |
-| 4 — Modèle | Découpage chronologique, SMOTE, comparaison de 4 modèles, MLflow | 🔨 |
+| 4 — Modèle | Découpage chronologique, 12 combinaisons comparées, MLflow — XGBoost retenu | ✅ |
 | 5 — Scoring | Table scorée et métriques d'évaluation | ⏳ |
 | 6 — Orchestration | Databricks Workflow planifié | ⏳ |
 | 7 — Dashboard | Alertes et suivi du taux de faux positifs | ⏳ |
