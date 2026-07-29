@@ -59,10 +59,14 @@ Elles portent toutes sur l'**exploitabilité structurelle** de la ligne. Aucune 
 
 | Règle | Ce qu'elle signale | Volume |
 | --- | --- | ---: |
-| `flag_minor_cardholder` | Porteur de moins de 18 ans au moment de la transaction | 21 860 lignes (1,18 %) |
+| `flag_minor_cardholder` | Porteur de moins de 18 ans au moment de la transaction | 21 847 lignes (1,18 %) |
 | `flag_zip_code_repaired` | Code postal reçu sur 4 caractères, zéro de tête restauré | 116 389 lignes (6,28 %) |
 
-**Pourquoi signaler plutôt que rejeter.** Ces anomalies sont **métier**, pas techniques. La ligne reste parfaitement exploitable ; c'est à l'analyse, et non à la couche technique, de décider quoi en faire. Un porteur de quinze ans est invraisemblable comme titulaire principal, mais parfaitement légitime comme porteur secondaire d'une carte familiale. Rejeter ces 21 860 lignes reviendrait à faire trancher par une couche technique une question qui relève du métier — et à perdre 1,18 % du corpus sur une supposition.
+> **Une divergence instructive sur le calcul de l'âge.** Le profilage initial annonçait 21 860 porteurs mineurs, le pipeline en a compté 21 847. L'écart de 13 lignes vient de la méthode : le profilage approximait l'âge par `(date − naissance) / 365,25`, là où la couche Silver utilise `months_between`, exact au calendrier. Les 13 lignes concernées sont des transactions survenues à quelques jours d'un dix-huitième anniversaire.
+>
+> L'écart est négligeable en volume, mais pas dans son principe : **un profilage dont les chiffres ne coïncident pas avec ceux du pipeline cesse de faire référence.** Le script de profilage a donc été aligné sur la sémantique exacte du pipeline, et c'est la valeur produite par l'exécution — 21 847 — qui fait foi dans ce mémoire. C'est aussi la raison pour laquelle chaque chiffre cité ici est réconcilié avec une sortie d'exécution, jamais avec une estimation.
+
+**Pourquoi signaler plutôt que rejeter.** Ces anomalies sont **métier**, pas techniques. La ligne reste parfaitement exploitable ; c'est à l'analyse, et non à la couche technique, de décider quoi en faire. Un porteur de quinze ans est invraisemblable comme titulaire principal, mais parfaitement légitime comme porteur secondaire d'une carte familiale. Rejeter ces 21 847 lignes reviendrait à faire trancher par une couche technique une question qui relève du métier — et à perdre 1,18 % du corpus sur une supposition.
 
 ## 4. Le principe de la quarantaine
 
@@ -75,9 +79,9 @@ Les lignes non conformes sont donc redirigées vers une table `silver_quarantine
 
 Le taux de rejet devient ainsi une **métrique mesurable et historisée**, et non un effet de bord silencieux.
 
-### Le taux de rejet attendu est de 0 %, et c'est un résultat
+### Le taux de rejet mesuré est de 0 %, et c'est un résultat
 
-Les neuf règles de rejet ne devraient écarter aucune ligne. Cette prévision est établie par le profilage, et le notebook la vérifie.
+Les neuf règles de rejet n'écartent aucune ligne. L'exécution du pipeline sur les 1 852 394 transactions produit **0 ligne en quarantaine**, conformément à la prévision établie par le profilage.
 
 Il faut savoir défendre ce point, car il sera interrogé. Des contrôles qui ne rejettent rien ne sont pas des contrôles inutiles :
 
@@ -177,11 +181,13 @@ Trois vérifications font échouer le notebook en cas d'écart.
 | Colonnes | 26, toutes typées et documentées en français |
 | Règles de rejet | 9 |
 | Règles de signalement | 2 |
-| Taux de rejet attendu | 0 % |
-| Réparations appliquées | 116 389 codes postaux |
+| Lignes conformes | 1 852 394 |
+| Taux de rejet mesuré | **0 %** — 0 ligne en quarantaine |
+| Réparations appliquées | 116 389 codes postaux, 0 non conforme après réparation |
+| Porteurs distincts après pseudonymisation | 999 (identique à la source) |
 | Identifiants directs supprimés | 5 |
 
 ---
 
 **À retenir pour la soutenance**
-Trois points se défendent seuls. **Le taux de rejet de 0 % est un résultat, pas une absence de contrôle** — les règles prouvent la conformité et protégeront le pipeline quand la source changera. **La distinction rejet/signalement** évite qu'une couche technique tranche une question métier : les 21 860 transactions de porteurs mineurs sont marquées, pas supprimées. **La réparation des codes postaux** valide empiriquement la décision d'architecture prise en Bronze : 6,28 % des lignes avaient perdu leur zéro de tête, les états concernés sont exactement ceux dont les ZIP commencent par 0, et si Bronze avait typé cette colonne en nombre l'information serait détruite sans retour.
+Trois points se défendent seuls. **Le taux de rejet de 0 % est un résultat, pas une absence de contrôle** — les règles prouvent la conformité et protégeront le pipeline quand la source changera. **La distinction rejet/signalement** évite qu'une couche technique tranche une question métier : les 21 847 transactions de porteurs mineurs sont marquées, pas supprimées. **La réparation des codes postaux** valide empiriquement la décision d'architecture prise en Bronze : 6,28 % des lignes avaient perdu leur zéro de tête, les états concernés sont exactement ceux dont les ZIP commencent par 0, et si Bronze avait typé cette colonne en nombre l'information serait détruite sans retour.

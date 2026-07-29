@@ -187,13 +187,34 @@ def profile_velocity(df: pd.DataFrame) -> None:
     print(f"  -> contraste x{(normal_gap.median() / fraud_gap.median()):.1f} : la velocite est le bon axe de features")
 
 
+def cardholder_age(event_time: pd.Series, birth_date: pd.Series) -> pd.Series:
+    """Âge en années révolues, exact au calendrier.
+
+    La formule intuitive `(date - naissance).days / 365.25` est une
+    approximation : elle ignore la position réelle de l'anniversaire dans
+    l'année et se trompe sur les transactions survenant à quelques jours de
+    celui-ci. Sur ce corpus, l'écart porte sur 13 lignes — négligeable en
+    volume, mais suffisant pour que ce script et le pipeline Spark annoncent
+    deux chiffres différents.
+
+    Un profilage dont les résultats ne coïncident pas avec ceux du pipeline ne
+    sert plus de référence. On reproduit donc exactement la sémantique de
+    `floor(months_between(event_time, dob) / 12)` utilisée en couche Silver.
+    """
+    before_birthday = (event_time.dt.month < birth_date.dt.month) | (
+        (event_time.dt.month == birth_date.dt.month)
+        & (event_time.dt.day < birth_date.dt.day)
+    )
+    return event_time.dt.year - birth_date.dt.year - before_birthday.astype(int)
+
+
 def profile_cardholder_age(df: pd.DataFrame) -> None:
     """Contrôle de plausibilité métier sur l'âge du porteur."""
     rule("CONTROLE DE PLAUSIBILITE — AGE DU PORTEUR")
-    age = (df["event_time"] - pd.to_datetime(df["dob"])).dt.days / 365.25
+    age = cardholder_age(df["event_time"], pd.to_datetime(df["dob"]))
     print(df.assign(age=age).groupby("is_fraud")["age"].agg(["mean", "median"]).to_string())
     minors = int((age < 18).sum())
-    print(f"  Age min / max : {age.min():.1f} / {age.max():.1f}")
+    print(f"  Age min / max : {age.min()} / {age.max()}")
     print(f"  Transactions avec porteur de moins de 18 ans : {minors:,} ({100 * minors / len(df):.2f} %)")
     print("  -> SIGNALE en Silver (indicateur), mais NON rejete : un mineur peut")
     print("     legitimement etre porteur secondaire d'une carte")

@@ -130,12 +130,12 @@ CONSTAT 7 — CADENCE DES TRANSACTIONS (base des features de velocite)
 ==============================================================================
 CONTROLE DE PLAUSIBILITE — AGE DU PORTEUR
 ==============================================================================
-               mean     median
-is_fraud                      
-0         45.980114  43.956194
-1         48.793489  47.802875
-  Age min / max : 13.9 / 95.6
-  Transactions avec porteur de moins de 18 ans : 15,568 (1.20 %)
+               mean  median
+is_fraud                   
+0         45.480620    43.0
+1         48.289369    47.0
+  Age min / max : 13 / 95
+  Transactions avec porteur de moins de 18 ans : 15,555 (1.20 %)
   -> SIGNALE en Silver (indicateur), mais NON rejete : un mineur peut
      legitimement etre porteur secondaire d'une carte
 

@@ -172,7 +172,7 @@ C'est le constat qui **valide empiriquement** l'axe principal de feature enginee
 | Étape | Décision issue du profilage |
 | --- | --- |
 | **1 — Bronze** | Ingérer les 23 colonnes sans transformation, en conservant `Unnamed: 0` et `unix_time` malgré leurs défauts : Bronze doit rester fidèle à la source pour permettre le rejeu. |
-| **2 — Silver** | Supprimer `Unnamed: 0` ; recalculer `unix_time` depuis l'horodatage de référence ; retirer le préfixe `fraud_` ; pseudonymiser `cc_num` et supprimer les identifiants directs ; exécuter et **publier** les contrôles qualité même s'ils ne rejettent rien ; signaler (sans rejeter) les 15 568 transactions dont le porteur a moins de 18 ans. |
+| **2 — Silver** | Supprimer `Unnamed: 0` ; recalculer `unix_time` depuis l'horodatage de référence ; retirer le préfixe `fraud_` ; pseudonymiser `cc_num` et supprimer les identifiants directs ; exécuter et **publier** les contrôles qualité même s'ils ne rejettent rien ; signaler (sans rejeter) les 15 555 transactions dont le porteur a moins de 18 ans. |
 | **3 — Gold** | Construire les compteurs de vélocité sur 1 h / 24 h / 7 j ; construire l'écart de montant en unités d'écart-type de l'historique du client ; conserver l'heure de la journée ; **ne pas** retenir la distance géographique brute. |
 | **4 — Modèle** | Surveiller le poids de l'heure de la journée dans l'analyse SHAP ; conserver la coupure temporelle native du 21/06/2020 comme frontière train/test. |
 | **Partie 3** | Trois artefacts du générateur à discuter dans le bilan critique : concentration horaire, plafonnement des montants frauduleux, non-discrimination de la distance. |
