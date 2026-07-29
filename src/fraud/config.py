@@ -1,0 +1,103 @@
+"""Configuration centrale du pipeline de détection de fraude.
+
+Toute la nomenclature Unity Catalog (catalogue, schéma, volume, tables) est
+définie ici et nulle part ailleurs. Deux raisons :
+
+1. **Maintenabilité** : si le workspace Databricks change (autre catalogue,
+   autre schéma), il y a un seul fichier à modifier au lieu de cinq notebooks.
+2. **Lisibilité** : les notebooks manipulent `config.BRONZE_TABLE` plutôt que
+   de répéter la chaîne `workspace.fraud_detection.bronze_transactions`, ce qui
+   supprime une classe entière de bugs (fautes de frappe sur un nom de table).
+
+Les valeurs sont surchargeables par variable d'environnement, ce qui permet de
+faire tourner le même code sur un workspace de test sans toucher au code.
+"""
+
+from __future__ import annotations
+
+import os
+
+# ---------------------------------------------------------------------------
+# Unity Catalog
+# ---------------------------------------------------------------------------
+# Sur Databricks Free Edition, le catalogue par défaut du workspace s'appelle
+# `workspace`. On y crée un schéma dédié au projet plutôt que d'écrire dans
+# `default` : un projet = un schéma, c'est la convention Databricks.
+CATALOG: str = os.getenv("FRAUD_CATALOG", "workspace")
+SCHEMA: str = os.getenv("FRAUD_SCHEMA", "fraud_detection")
+
+# Volume Unity Catalog qui héberge les CSV sources.
+# Un *volume* est l'emplacement de stockage géré par Unity Catalog pour les
+# fichiers non tabulaires. On l'utilise à la place de DBFS, déprécié.
+VOLUME: str = os.getenv("FRAUD_VOLUME", "raw")
+
+
+def fqn(table: str) -> str:
+    """Retourne le nom pleinement qualifié d'une table (`catalog.schema.table`)."""
+    return f"{CATALOG}.{SCHEMA}.{table}"
+
+
+# ---------------------------------------------------------------------------
+# Tables de l'architecture Medallion
+# ---------------------------------------------------------------------------
+BRONZE_TABLE: str = fqn("bronze_transactions")  # brut, fidèle à la source
+SILVER_TABLE: str = fqn("silver_transactions")  # typé, nettoyé, dédupliqué
+GOLD_FEATURES_TABLE: str = fqn("gold_features")  # variables comportementales
+GOLD_SCORED_TABLE: str = fqn("gold_scored_transactions")  # + score et décision
+
+# Table technique : journal des rejets de la qualité de données (étape 2).
+# On ne jette JAMAIS une ligne invalide silencieusement — on la trace, on la
+# compte, et on l'explique dans le mémoire.
+QUARANTINE_TABLE: str = fqn("silver_quarantine")
+
+# ---------------------------------------------------------------------------
+# Chemins des fichiers sources dans le volume
+# ---------------------------------------------------------------------------
+VOLUME_PATH: str = f"/Volumes/{CATALOG}/{SCHEMA}/{VOLUME}"
+RAW_TRAIN_PATH: str = f"{VOLUME_PATH}/fraudTrain.csv"
+RAW_TEST_PATH: str = f"{VOLUME_PATH}/fraudTest.csv"
+
+# ---------------------------------------------------------------------------
+# Colonnes clés du dataset Sparkov
+# ---------------------------------------------------------------------------
+# Nommées ici pour éviter les littéraux dispersés : si la source change de
+# nom de colonne, un seul endroit à corriger.
+TARGET_COL: str = "is_fraud"  # variable cible (1 = fraude)
+EVENT_TIME_COL: str = "trans_date_trans_time"  # horodatage métier
+ENTITY_COL: str = "cc_num"  # identifiant client (numéro de carte)
+AMOUNT_COL: str = "amt"  # montant de la transaction
+TRANSACTION_ID_COL: str = "trans_num"  # identifiant unique de transaction
+
+# ---------------------------------------------------------------------------
+# MLflow
+# ---------------------------------------------------------------------------
+MLFLOW_EXPERIMENT: str = os.getenv(
+    "FRAUD_MLFLOW_EXPERIMENT", "/Shared/fraud_detection"
+)
+REGISTERED_MODEL_NAME: str = fqn("fraud_detection_model")
+
+
+def describe() -> str:
+    """Résumé lisible de la configuration active — à afficher en tête de notebook.
+
+    Sert de trace d'exécution : dans un rendu de notebook joint au mémoire, on
+    voit immédiatement sur quel catalogue et quelles tables le run a travaillé.
+    """
+    return "\n".join(
+        [
+            "Configuration du pipeline",
+            "-" * 40,
+            f"  Catalogue        : {CATALOG}",
+            f"  Schéma           : {SCHEMA}",
+            f"  Volume (sources) : {VOLUME_PATH}",
+            "",
+            f"  Bronze           : {BRONZE_TABLE}",
+            f"  Silver           : {SILVER_TABLE}",
+            f"  Quarantaine      : {QUARANTINE_TABLE}",
+            f"  Gold (features)  : {GOLD_FEATURES_TABLE}",
+            f"  Gold (scorée)    : {GOLD_SCORED_TABLE}",
+            "",
+            f"  Expérience MLflow: {MLFLOW_EXPERIMENT}",
+            f"  Modèle enregistré: {REGISTERED_MODEL_NAME}",
+        ]
+    )

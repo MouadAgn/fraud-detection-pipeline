@@ -1,0 +1,149 @@
+
+==============================================================================
+VOLUMETRIE — fraudTrain.csv
+==============================================================================
+  Transactions          : 1,296,675
+  Colonnes              : 23
+  Periode               : 2019-01-01 00:00:18  ->  2020-06-21 12:13:37
+  Fraudes               : 7,506  (0.5789 %)
+  Ratio legitime:fraude : 172 : 1
+  Porteurs distincts    : 983
+  Commercants distincts : 693
+  Categories            : 14
+
+==============================================================================
+VOLUMETRIE — fraudTest.csv
+==============================================================================
+  Transactions          : 555,719
+  Colonnes              : 23
+  Periode               : 2020-06-21 12:14:25  ->  2020-12-31 23:59:34
+  Fraudes               : 2,145  (0.3860 %)
+  Ratio legitime:fraude : 258 : 1
+  Porteurs distincts    : 924
+  Commercants distincts : 693
+  Categories            : 14
+
+==============================================================================
+VOLUMETRIE — CORPUS COMPLET
+==============================================================================
+  Transactions          : 1,852,394
+  Colonnes              : 23
+  Periode               : 2019-01-01 00:00:18  ->  2020-12-31 23:59:34
+  Fraudes               : 9,651  (0.5210 %)
+  Ratio legitime:fraude : 191 : 1
+  Porteurs distincts    : 999
+  Commercants distincts : 693
+  Categories            : 14
+
+==============================================================================
+CONSTAT 1 — QUALITE BRUTE
+==============================================================================
+  OK  Valeurs manquantes (total)                0
+  OK  trans_num dupliques                       0
+  OK  Lignes strictement identiques             0
+  OK  Montants <= 0                             0
+  OK  Horodatages invalides                     0
+
+==============================================================================
+CONSTAT 2 — COHERENCE unix_time vs trans_date_trans_time
+==============================================================================
+  Ecart minimal              :     220,838,400 s
+  Ecart maximal              :     220,924,800 s
+  Valeurs d'ecart distinctes :               2
+  Ecart moyen en annees      :          6.9989
+  Exemple : 2019-01-01 00:00:18  vs  2012-01-01 00:00:18 (depuis unix_time)
+  -> decalage systematique du generateur, pas une corruption
+
+==============================================================================
+CONSTAT 3 — PREFIXE 'fraud_' DES COMMERCANTS
+==============================================================================
+  Transactions prefixees : 1,296,675 / 1,296,675 (100.0 %)
+  -> prefixe applique a 100 % des commercants : artefact de nommage,
+     AUCUNE fuite de la variable cible. Retire en couche Silver.
+
+==============================================================================
+CONSTAT 4 — TAUX DE FRAUDE PAR HEURE
+==============================================================================
+    00h   1.494 %  #####
+    01h   1.535 %  ######
+    02h   1.465 %  #####
+    03h   1.424 %  #####
+    04h   0.110 %  
+    05h   0.142 %  
+    06h   0.095 %  
+    07h   0.133 %  
+    08h   0.115 %  
+    09h   0.111 %  
+    10h   0.095 %  
+    11h   0.100 %  
+    12h   0.103 %  
+    13h   0.122 %  
+    14h   0.133 %  
+    15h   0.121 %  
+    16h   0.116 %  
+    17h   0.119 %  
+    18h   0.123 %  
+    19h   0.124 %  
+    20h   0.095 %  
+    21h   0.113 %  
+    22h   2.883 %  ###########
+    23h   2.837 %  ###########
+  Plage nocturne (22h-03h) : 1.424 % - 2.883 %
+  Plage diurne   (04h-21h) : 0.095 % - 0.142 %
+  Rapport nocturne/diurne  : x10 a x30
+
+==============================================================================
+CONSTAT 5 — DISTANCE PORTEUR <-> COMMERCANT (km)
+==============================================================================
+               mean     median         max
+is_fraud                                  
+0         76.113756  78.233012  152.117173
+1         76.268330  77.931954  144.522410
+  Ecart des moyennes entre classes : 0.15 km
+  -> distributions indiscernables : variable ECARTEE du jeu de features
+
+==============================================================================
+CONSTAT 6 — MONTANT PAR CLASSE ($)
+==============================================================================
+            count        mean   median       max
+is_fraud                                        
+0         1289169   67.667110   47.280  28948.90
+1            7506  531.320092  396.505   1376.04
+  Rapport des medianes (fraude/legitime) : x8.4
+  Montant frauduleux maximal : 1,376.04 $
+  Montant legitime  maximal  : 28,948.90 $
+  -> plafond artificiel sur les fraudes : un montant tres eleve
+     est ici un indicateur de transaction LEGITIME
+
+==============================================================================
+CONSTAT 7 — CADENCE DES TRANSACTIONS (base des features de velocite)
+==============================================================================
+  Client normal :
+    Transactions par client (moyenne) : 1319
+    Delai median entre 2 transactions : 4.60 h
+    Percentile 05 / 95                : 16.4 min / 31.7 h
+  Episode de fraude (meme carte) :
+    Delai median entre 2 fraudes      : 64.9 min
+    Fraudes survenant < 1 h apres la precedente : 43.3 %
+  -> contraste x4.3 : la velocite est le bon axe de features
+
+==============================================================================
+CONTROLE DE PLAUSIBILITE — AGE DU PORTEUR
+==============================================================================
+               mean     median
+is_fraud                      
+0         45.980114  43.956194
+1         48.793489  47.802875
+  Age min / max : 13.9 / 95.6
+  Transactions avec porteur de moins de 18 ans : 15,568 (1.20 %)
+  -> SIGNALE en Silver (indicateur), mais NON rejete : un mineur peut
+     legitimement etre porteur secondaire d'une carte
+
+==============================================================================
+PROTOCOLE — SEPARATION TEMPORELLE TRAIN / TEST
+==============================================================================
+  Train : 2019-01-01 00:00:18  ->  2020-06-21 12:13:37
+  Test  : 2020-06-21 12:14:25  ->  2020-12-31 23:59:34
+  Chevauchement temporel : NON (conforme)
+  Porteurs : train=983  test=924  communs=908  union=999
+  Taux de fraude : train=0.5789 %  test=0.3860 %  (derive a documenter)

@@ -1,0 +1,50 @@
+# ---------------------------------------------------------------------------
+# Données brutes et dérivées
+# Jamais versionnées : volumétrie (>500 Mo) + licence Kaggle qui interdit la
+# redistribution. Le dataset se retélécharge via scripts/download_dataset.ps1.
+# ---------------------------------------------------------------------------
+data/*
+!data/README.md
+*.zip
+
+# ---------------------------------------------------------------------------
+# Secrets — ne doivent JAMAIS partir sur GitHub
+# ---------------------------------------------------------------------------
+.env
+.env.*
+kaggle.json
+*.pem
+.databrickscfg
+
+# ---------------------------------------------------------------------------
+# Python
+# ---------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.ipynb_checkpoints/
+.pytest_cache/
+.ruff_cache/
+
+# ---------------------------------------------------------------------------
+# Spark / Delta / MLflow (artefacts d'exécution locale éventuelle)
+# ---------------------------------------------------------------------------
+spark-warehouse/
+metastore_db/
+derby.log
+mlruns/
+
+# ---------------------------------------------------------------------------
+# OS / IDE
+# ---------------------------------------------------------------------------
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# ---------------------------------------------------------------------------
+# Document source du projet (fiche de cadrage, non versionné)
+# ---------------------------------------------------------------------------
+Fiche_Projet_Detection_Fraude_DataEngineering.md.pdf

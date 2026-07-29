@@ -1,0 +1,26 @@
+# ---------------------------------------------------------------------------
+# Dépendances du projet — Databricks Free Edition (compute serverless)
+# ---------------------------------------------------------------------------
+# À installer en tête de notebook :
+#     %pip install -r ../requirements.txt
+#     dbutils.library.restartPython()
+#
+# NE SONT PAS LISTÉES ICI (fournies par le runtime Databricks, les réinstaller
+# casse l'environnement) : pyspark, delta-spark, mlflow, pandas, numpy,
+# scikit-learn, matplotlib.
+# Leurs versions exactes sont capturées automatiquement par MLflow à chaque run
+# d'entraînement (fichier `conda.yaml` / `requirements.txt` de l'artefact) :
+# c'est cela qui garantit la reproductibilité, pas ce fichier.
+# ---------------------------------------------------------------------------
+
+# Modèle principal du mémoire
+xgboost>=2.0,<3.0
+
+# Correction du déséquilibre de classes (SMOTE)
+imbalanced-learn>=0.12,<1.0
+
+# Modèle alternatif pour la comparaison (étape 4)
+lightgbm>=4.3,<5.0
+
+# Explicabilité du modèle (étape 4)
+shap>=0.45,<1.0
