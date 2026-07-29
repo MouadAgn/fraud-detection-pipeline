@@ -117,6 +117,31 @@ MLFLOW_EXPERIMENT: str = os.getenv(
 )
 REGISTERED_MODEL_NAME: str = fqn("fraud_detection_model")
 
+# Alias désignant la version en service. Le notebook de scoring charge
+# `models:/<modèle>@champion` plutôt qu'un numéro figé : promouvoir un nouveau
+# modèle revient alors à déplacer l'alias, sans toucher au code en aval.
+MODEL_ALIAS: str = "champion"
+
+# ---------------------------------------------------------------------------
+# Modèle de coût métier (étape 5)
+# ---------------------------------------------------------------------------
+# Le seuil de décision ne se choisit pas sur une métrique statistique mais sur
+# un arbitrage économique. Les deux erreurs n'ont ni la même nature ni le même
+# coût :
+#
+#   FAUX NÉGATIF  — une fraude non détectée. Le coût est le montant de la
+#                   transaction, disponible dans les données : il n'a pas à
+#                   être supposé.
+#   FAUX POSITIF  — une transaction légitime bloquée. Le coût est fixe et
+#                   composite : temps d'analyste, contact client, friction
+#                   commerciale. Il doit être posé en hypothèse.
+#
+# La valeur ci-dessous est une hypothèse de travail, pas une mesure. Le
+# notebook conduit donc une analyse de sensibilité sur plusieurs valeurs
+# plutôt que de faire reposer la conclusion sur un seul chiffre arbitraire.
+FALSE_ALERT_COST: float = float(os.getenv("FRAUD_FALSE_ALERT_COST", "5.0"))
+FALSE_ALERT_COST_SCENARIOS: tuple[float, ...] = (2.0, 5.0, 10.0, 25.0)
+
 
 def describe() -> str:
     """Résumé lisible de la configuration active — à afficher en tête de notebook.

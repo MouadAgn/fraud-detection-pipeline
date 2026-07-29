@@ -116,6 +116,99 @@ def best_threshold_for_recall(sweep: pd.DataFrame, target_recall: float) -> pd.S
     return candidates.loc[candidates["precision"].idxmax()]
 
 
+def cost_curve(
+    y_true: pd.Series,
+    y_score: np.ndarray,
+    amounts: pd.Series,
+    false_alert_cost: float,
+) -> pd.DataFrame:
+    """Coût métier total en fonction du seuil de décision.
+
+    Le seuil ne devrait pas se choisir sur une métrique statistique. Maximiser
+    le F1 revient à postuler qu'un faux positif et un faux négatif se valent —
+    ce qui est faux dans tous les métiers, et particulièrement en fraude, où
+    les deux erreurs n'ont ni la même nature ni le même coût :
+
+    - **Faux négatif** — une fraude non détectée. Son coût est le **montant de
+      la transaction**, présent dans les données : il n'a pas à être supposé.
+    - **Faux positif** — une transaction légitime bloquée. Son coût est fixe et
+      composite (temps d'analyste, contact client, friction commerciale), et
+      doit être posé en hypothèse.
+
+    Le seuil optimal est celui qui minimise la somme des deux. Il dépend donc
+    de l'hypothèse de coût, ce qui impose une analyse de sensibilité plutôt
+    qu'une valeur unique présentée comme la vérité.
+
+    La courbe est calculée en une passe par sommes cumulées sur les scores
+    triés, et non par un balayage de seuils : le coût passe de quadratique à
+    ``O(n log n)``.
+
+    Returns:
+        Une ligne par seuil candidat, du plus sélectif au plus permissif. La
+        première ligne correspond à l'absence totale d'alerte — la référence
+        « aucun modèle », où toute la fraude est subie.
+    """
+    y = np.asarray(y_true)
+    scores = np.asarray(y_score)
+    values = np.asarray(amounts, dtype=float)
+
+    order = np.argsort(-scores)  # du plus suspect au moins suspect
+    y, scores, values = y[order], scores[order], values[order]
+
+    # Alerter sur les k transactions les mieux classées revient à fixer le
+    # seuil à la valeur du k-ième score.
+    detected_amount = np.concatenate([[0.0], np.cumsum(values * y)])
+    true_positives = np.concatenate([[0], np.cumsum(y)])
+    false_positives = np.concatenate([[0], np.cumsum(1 - y)])
+    thresholds = np.concatenate([[np.inf], scores])
+
+    total_fraud_amount = detected_amount[-1]
+    missed_amount = total_fraud_amount - detected_amount
+    alert_cost = false_alert_cost * false_positives
+
+    n_frauds = max(int(y.sum()), 1)
+    alerts = np.arange(len(thresholds))
+
+    curve = pd.DataFrame(
+        {
+            "threshold": thresholds,
+            "alerts": alerts,
+            "true_positives": true_positives,
+            "false_positives": false_positives,
+            "fraud_amount_recovered": detected_amount,
+            "fraud_amount_missed": missed_amount,
+            "alert_cost": alert_cost,
+            "total_cost": missed_amount + alert_cost,
+            "recall": true_positives / n_frauds,
+        }
+    )
+    curve["precision"] = np.divide(
+        true_positives, alerts, out=np.zeros_like(detected_amount), where=alerts > 0
+    )
+
+    # --- Traitement des ex æquo -------------------------------------------
+    # Le raisonnement par sommes cumulées décrit « alerter sur les k
+    # transactions les mieux classées ». Or la règle réellement appliquée en
+    # production est « alerter si score >= seuil » : lorsque plusieurs
+    # transactions partagent le même score, elle en déclenche davantage que k.
+    #
+    # Une coupure au milieu d'un groupe d'ex æquo décrirait donc un point de
+    # fonctionnement inatteignable. Seules les coupures séparant deux scores
+    # distincts sont conservées, ce qui rend chaque ligne de la courbe
+    # exactement reproductible par application du seuil correspondant.
+    n = len(scores)
+    is_applicable = np.ones(n + 1, dtype=bool)
+    if n > 1:
+        is_applicable[1:n] = scores[: n - 1] != scores[1:n]
+
+    return curve[is_applicable].reset_index(drop=True)
+
+
+def optimal_threshold_by_cost(curve: pd.DataFrame) -> pd.Series:
+    """Point de la courbe minimisant le coût métier total."""
+    return curve.loc[curve["total_cost"].idxmin()]
+
+
 def format_comparison(results: list[dict]) -> str:
     """Met en forme le tableau comparatif des modèles."""
     header = (

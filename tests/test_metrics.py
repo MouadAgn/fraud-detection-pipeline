@@ -28,7 +28,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 from fraud.metrics import (  # noqa: E402
     best_threshold_for_recall,
+    cost_curve,
     evaluate,
+    optimal_threshold_by_cost,
     threshold_sweep,
 )
 
@@ -170,6 +172,79 @@ def test_perfect_classifier_has_no_false_positives():
     assert metrics["precision"] == 1.0
     assert metrics["recall"] == 1.0
     assert metrics["auc_pr"] == pytest.approx(1.0)
+
+
+def test_cost_curve_starts_at_the_no_model_baseline(scored_sample):
+    """La première ligne représente l'absence d'alerte : toute la fraude est subie.
+
+    C'est la référence contre laquelle se mesure l'apport du modèle. Sans elle,
+    on ne saurait pas si le dispositif fait gagner ou perdre de l'argent.
+    """
+    y, scores = scored_sample
+    rng = np.random.default_rng(1)
+    amounts = pd.Series(rng.gamma(2, 100, len(y)))
+
+    curve = cost_curve(y, scores, amounts, false_alert_cost=5.0)
+    baseline = curve.iloc[0]
+
+    assert baseline["alerts"] == 0
+    assert baseline["false_positives"] == 0
+    assert baseline["alert_cost"] == 0.0
+    # Aucune alerte : le coût total est exactement le montant total fraudé.
+    assert baseline["total_cost"] == pytest.approx(amounts[y == 1].sum())
+
+
+def test_cost_curve_is_consistent_at_every_point(scored_sample):
+    """Vérification croisée du coût sur plusieurs points de la courbe."""
+    y, scores = scored_sample
+    rng = np.random.default_rng(1)
+    amounts = pd.Series(rng.gamma(2, 100, len(y)))
+    false_alert_cost = 7.5
+
+    curve = cost_curve(y, scores, amounts, false_alert_cost)
+
+    for _, row in curve.iloc[1:: max(1, len(curve) // 8)].iterrows():
+        flagged = scores >= row["threshold"]
+        expected_missed = amounts[(y == 1) & ~flagged].sum()
+        expected_alerts = false_alert_cost * int(((y == 0) & flagged).sum())
+
+        assert row["false_positives"] == int(((y == 0) & flagged).sum())
+        assert row["fraud_amount_missed"] == pytest.approx(expected_missed)
+        assert row["total_cost"] == pytest.approx(expected_missed + expected_alerts)
+
+
+def test_costlier_false_alerts_raise_the_optimal_threshold(scored_sample):
+    """Plus une fausse alerte coûte cher, plus le seuil optimal est sélectif.
+
+    C'est la propriété économique attendue : si déranger un client à tort
+    devient coûteux, on n'alerte que sur les cas les plus suspects. Si la
+    relation s'inversait, le modèle de coût serait mal construit.
+    """
+    y, scores = scored_sample
+    rng = np.random.default_rng(1)
+    amounts = pd.Series(rng.gamma(2, 100, len(y)))
+
+    alert_counts = [
+        optimal_threshold_by_cost(cost_curve(y, scores, amounts, cost))["alerts"]
+        for cost in (1.0, 10.0, 100.0)
+    ]
+    # Un coût croissant réduit (ou maintient) le nombre d'alertes émises.
+    assert alert_counts == sorted(alert_counts, reverse=True)
+
+
+def test_optimal_cost_never_exceeds_the_no_model_baseline(scored_sample):
+    """Le seuil optimal ne peut pas coûter plus cher que de ne rien faire.
+
+    La ligne « aucune alerte » fait partie des candidats : si le modèle
+    n'apportait rien, l'optimum s'y confondrait. Un coût supérieur signalerait
+    une erreur de calcul.
+    """
+    y, scores = scored_sample
+    rng = np.random.default_rng(1)
+    amounts = pd.Series(rng.gamma(2, 100, len(y)))
+
+    curve = cost_curve(y, scores, amounts, false_alert_cost=5.0)
+    assert optimal_threshold_by_cost(curve)["total_cost"] <= curve.iloc[0]["total_cost"]
 
 
 def test_threshold_above_every_score_predicts_nothing():

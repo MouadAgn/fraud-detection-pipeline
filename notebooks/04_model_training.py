@@ -610,6 +610,34 @@ print(f"Modèle enregistré : {config.REGISTERED_MODEL_NAME}  version {registere
 # COMMAND ----------
 
 # MAGIC %md
+# MAGIC ### Alias `champion`
+# MAGIC
+# MAGIC Un **alias** est un nom stable qui désigne une version du modèle. Le
+# MAGIC notebook de scoring chargera `@champion` plutôt qu'un numéro de version
+# MAGIC figé : promouvoir un nouveau modèle se réduit alors à déplacer l'alias, sans
+# MAGIC modifier une seule ligne de code en aval.
+# MAGIC
+# MAGIC C'est le mécanisme qui a remplacé les *stages* (`Staging`, `Production`) dans
+# MAGIC Unity Catalog, et c'est ce qui permet de rejouer un déploiement ou de revenir
+# MAGIC en arrière sans redéployer le pipeline.
+
+# COMMAND ----------
+
+from mlflow import MlflowClient
+
+client = MlflowClient()
+client.set_registered_model_alias(
+    name=config.REGISTERED_MODEL_NAME,
+    alias=config.MODEL_ALIAS,
+    version=registered.version,
+)
+
+print(f"Alias posé : {config.REGISTERED_MODEL_NAME}@{config.MODEL_ALIAS} "
+      f"-> version {registered.version}")
+
+# COMMAND ----------
+
+# MAGIC %md
 # MAGIC ## Récapitulatif
 # MAGIC
 # MAGIC | | |
