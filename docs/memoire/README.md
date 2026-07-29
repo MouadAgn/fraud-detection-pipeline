@@ -19,9 +19,9 @@ rejouable.
 | [03 — Qualité et conformité Silver](03_qualite_silver.md) | Étape 2 | Partie 2 — data cleaning | ✅ |
 | [04 — Feature engineering Gold](04_features_gold.md) | Étape 3 | Partie 2 — variables explicatives | ✅ |
 | [05 — Modélisation et comparaison](05_modelisation.md) | Étape 4 | Partie 2 — choix de l'algorithme | ✅ |
-| 06 — Seuil de décision et faux positifs | Étape 4 | Partie 3 — arbitrage précision/rappel | ⏳ |
-| 07 — Explicabilité (SHAP) | Étape 4 | Partie 3 — interprétation | ⏳ |
-| 08 — Évaluation expérimentale | Étape 5 | Partie 3 — résultats | ⏳ |
+| [06 — Seuil de décision et faux positifs](06_seuil_faux_positifs.md) | Étape 5 | Partie 3 — arbitrage précision/rappel | ✅ |
+| [07 — Explicabilité (SHAP)](07_explicabilite_shap.md) | Étape 5 | Partie 3 — interprétation | ✅ |
+| [08 — Évaluation expérimentale](08_evaluation_finale.md) | Étape 5 | Partie 3 — résultats | ✅ |
 | 09 — Orchestration | Étape 6 | Partie 2 — industrialisation | ⏳ |
 | 10 — Dashboard et KPI | Étape 7 | Partie 3 — analyse des faux positifs | ⏳ |
 | 11 — Bilan critique et limites | — | Partie 3 — bilan critique | ⏳ |

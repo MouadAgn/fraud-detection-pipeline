@@ -1,6 +1,6 @@
 # Plateforme de détection de fraude bancaire
 
-Pipeline de données de bout en bout sur **Databricks** : ingestion de 1,85 M de transactions, architecture **Medallion** (Bronze / Silver / Gold) en **Delta Lake**, feature engineering comportemental en **PySpark**, scoring **XGBoost + SMOTE** suivi dans **MLflow**, et dashboard des alertes.
+Pipeline de données de bout en bout sur **Databricks** : ingestion de 1,85 M de transactions, architecture **Medallion** (Bronze / Silver / Gold) en **Delta Lake**, feature engineering comportemental en **PySpark**, scoring **XGBoost** suivi dans **MLflow**, et dashboard des alertes.
 
 > Projet Data Engineering support du mémoire MIA26 — *Améliorer la détection des fraudes tout en minimisant les faux positifs en environnement Big Data*.
 
@@ -17,7 +17,7 @@ flowchart LR
     SRC[("CSV sources<br/>1,85 M transactions")] --> B
     B["<b>BRONZE</b><br/>brut"] --> S["<b>SILVER</b><br/>typé · validé<br/>pseudonymisé"]
     S --> G["<b>GOLD</b><br/>features<br/>comportementales"]
-    G --> M["<b>Modèle</b><br/>XGBoost + SMOTE<br/>MLflow"]
+    G --> M["<b>Modèle</b><br/>XGBoost<br/>MLflow"]
     M --> D["<b>Dashboard</b><br/>alertes<br/>taux de faux positifs"]
 
     style B fill:#cd7f32,color:#fff
@@ -30,7 +30,7 @@ Détail des couches, décisions d'architecture et contraintes anti-fuite : **[do
 
 ## Stack
 
-`Databricks` · `PySpark` · `Delta Lake` · `Unity Catalog` · `Spark SQL` · `MLflow` · `XGBoost` · `imbalanced-learn (SMOTE)` · `SHAP` · `Databricks Workflows` · `Databricks SQL`
+`Databricks` · `PySpark` · `Delta Lake` · `Unity Catalog` · `Spark SQL` · `MLflow` · `XGBoost` · `LightGBM` · `imbalanced-learn (SMOTE, testé puis écarté)` · `SHAP` · `Databricks Workflows` · `Databricks SQL`
 
 ## Le jeu de données
 
@@ -49,17 +49,21 @@ Récupération des données : [data/README.md](data/README.md)
 
 ## Résultats
 
-> ⏳ *En cours — cette section sera remplie avec les métriques réelles à l'issue de l'étape 5.*
+Mesurés sur le **bloc de test** — 555 719 transactions du dernier semestre 2020, jamais consultées avant l'évaluation finale.
 
 | Métrique | Valeur |
 | --- | --- |
-| AUC-ROC | — |
-| AUC-PR | — |
-| Précision | — |
-| Rappel | — |
-| F1 | — |
-| **Taux de faux positifs** | — |
-| Seuil de décision retenu | — |
+| AUC-ROC | 0,9991 |
+| AUC-PR | 0,9671 |
+| Précision | 0,7711 |
+| Rappel | **0,9548** |
+| F1 | 0,8532 |
+| **Taux de faux positifs** | **0,110 %** |
+| Seuil de décision retenu | 0,0380 — par minimisation du coût métier |
+
+**2 048 fraudes détectées sur 2 145**, pour **608 fausses alertes** sur 553 574 transactions légitimes — soit **1,3 alerte examinée par fraude trouvée**.
+
+> ⚠️ Corpus simulé : ces valeurs constituent une borne supérieure optimiste. Un système réel se situe plutôt entre 0,4 et 0,7 d'AUC-PR. Elles servent à comparer les configurations entre elles, non à promettre une performance en production.
 
 ## Avancement
 
@@ -70,7 +74,7 @@ Récupération des données : [data/README.md](data/README.md)
 | 2 — Silver | Typage, contrôles qualité, pseudonymisation RGPD — 0 % de rejet, 116 389 codes postaux réparés | ✅ |
 | 3 — Gold | Variables comportementales (window functions) — 20 variables, 0 fuite temporelle | ✅ |
 | 4 — Modèle | Découpage chronologique, 12 combinaisons comparées, MLflow — XGBoost retenu | ✅ |
-| 5 — Scoring | Table scorée et métriques d'évaluation | ⏳ |
+| 5 — Scoring | Seuil par coût métier, SHAP, évaluation finale — **TFP 0,110 %** | ✅ |
 | 6 — Orchestration | Databricks Workflow planifié | ⏳ |
 | 7 — Dashboard | Alertes et suivi du taux de faux positifs | ⏳ |
 | 8 — Streaming *(bonus)* | Auto Loader + Structured Streaming | ⏳ |
@@ -86,6 +90,10 @@ Notes disponibles à ce stade :
 - **[02 — Ingestion Bronze](docs/memoire/02_ingestion_bronze.md)** — schéma explicite, validation d'en-tête, idempotence et non-partitionnement justifié.
 - **[03 — Qualité et conformité Silver](docs/memoire/03_qualite_silver.md)** — règles de qualité et quarantaine, réparation des codes postaux, pseudonymisation salée.
 - **[04 — Feature engineering Gold](docs/memoire/04_features_gold.md)** — fenêtres glissantes sans fuite temporelle, z-score du montant contre l'historique du porteur, variables écartées sur preuve.
+- **[05 — Modélisation et comparaison](docs/memoire/05_modelisation.md)** — 12 combinaisons comparées, SMOTE testé puis écarté, XGBoost retenu sur sa robustesse et non sur son score.
+- **[06 — Seuil de décision et faux positifs](docs/memoire/06_seuil_faux_positifs.md)** — seuil par minimisation du coût métier, analyse de sensibilité, et pourquoi « minimiser les faux positifs » ne peut pas être un objectif absolu.
+- **[07 — Explicabilité (SHAP)](docs/memoire/07_explicabilite_shap.md)** — contributions par variable, et pourquoi la variable annoncée comme centrale n'arrive que 13ᵉ.
+- **[08 — Évaluation expérimentale](docs/memoire/08_evaluation_finale.md)** — résultats finaux sur le bloc de test, généralisation et réserves.
 
 Le **[dictionnaire de données](docs/dictionnaire_donnees.md)** décrit en français chacune des 26 colonnes de la couche Silver. Il est généré depuis le code, jamais rédigé à la main.
 
