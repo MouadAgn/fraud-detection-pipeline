@@ -76,7 +76,7 @@ Mesurés sur le **bloc de test** — 555 719 transactions du dernier semestre 20
 | 4 — Modèle | Découpage chronologique, 12 combinaisons comparées, MLflow — XGBoost retenu | ✅ |
 | 5 — Scoring | Seuil par coût métier, SHAP, évaluation finale — **TFP 0,110 %** | ✅ |
 | 6 — Orchestration | Databricks Workflow — 2 jobs séparés, chaîne complète en **5 min 15** | ✅ |
-| 7 — Dashboard | 7 requêtes Databricks SQL — courbe du TFP, file d'alertes, impact financier | 🔨 |
+| 7 — Dashboard | Tableau de bord versionné — 9 visualisations, importable en un fichier | ✅ |
 | 8 — Streaming *(bonus)* | Auto Loader, Silver en flux, profil client + jointure flux/statique | 🔨 |
 
 ## Documentation
@@ -124,7 +124,9 @@ fraud-detection-pipeline/
 │   └── generate_data_dictionary.py  # génère le dictionnaire depuis silver.py
 ├── tests/                       # tests unitaires des fonctions de src/
 ├── workflows/                   # définition du job Databricks orchestré
-├── dashboards/                  # requêtes SQL et captures du dashboard
+├── dashboards/
+│   ├── fraud_dashboard.lvdash.json  # tableau de bord versionné, importable
+│   └── queries.sql              # les requêtes, commentées
 └── requirements.txt
 ```
 
