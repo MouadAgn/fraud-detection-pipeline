@@ -409,6 +409,74 @@ print("directe — c'est le KPI de la problématique.")
 # COMMAND ----------
 
 # MAGIC %md
+# MAGIC ### Compléter le plan d'expérience
+# MAGIC
+# MAGIC Les deux comparaisons précédentes procèdent **à un facteur à la fois** :
+# MAGIC les algorithmes ont été comparés à rééquilibrage constant, puis les
+# MAGIC rééquilibrages à algorithme constant.
+# MAGIC
+# MAGIC C'est une démarche courante et lisible, mais elle a un angle mort : **la
+# MAGIC combinaison la plus prometteuse peut n'avoir jamais été testée**. Ici, les
+# MAGIC deux tendances observées — LightGBM devant XGBoost, et l'absence de
+# MAGIC rééquilibrage devant SMOTE — pointent vers *LightGBM sans rééquilibrage*,
+# MAGIC qui ne figure dans aucun des deux tableaux.
+# MAGIC
+# MAGIC Les quatre combinaisons manquantes sont donc évaluées, afin que le modèle
+# MAGIC retenu le soit sur un plan **complet** et non sur les seules combinaisons
+# MAGIC envisagées au départ.
+
+# COMMAND ----------
+
+def lgbm(**overrides):
+    params = dict(
+        n_estimators=300, learning_rate=0.05, num_leaves=64,
+        n_jobs=-1, random_state=RANDOM_STATE, verbose=-1,
+    )
+    params.update(overrides)
+    return LGBMClassifier(**params)
+
+
+LIGHTGBM_STRATEGIES = {
+    "lgbm_sans_reequilibrage": (lgbm(), None),
+    "lgbm_scale_pos_weight": (lgbm(scale_pos_weight=scale_pos_weight), None),
+    "lgbm_smote_02": (lgbm(), SMOTE(sampling_strategy=0.02, random_state=RANDOM_STATE)),
+    "lgbm_smote_20": (lgbm(), SMOTE(sampling_strategy=0.20, random_state=RANDOM_STATE)),
+}
+
+lightgbm_results = []
+for name, (estimator, sampler) in LIGHTGBM_STRATEGIES.items():
+    lightgbm_results.append(
+        train_and_evaluate(name, estimator, False, sampler, {"phase": "reequilibrage"})
+    )
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ### Plan d'expérience complet
+# MAGIC
+# MAGIC Deux algorithmes de boosting × quatre stratégies de rééquilibrage.
+
+# COMMAND ----------
+
+grid_results = rebalancing_results + lightgbm_results
+print(modeling.format_comparison(grid_results))
+
+print()
+print(f"{'Stratégie':<24}{'XGBoost':>10}{'LightGBM':>11}   Écart")
+print("-" * 56)
+for suffix, label in [
+    ("sans_reequilibrage", "aucun"),
+    ("scale_pos_weight", "scale_pos_weight"),
+    ("smote_02", "SMOTE 2 %"),
+    ("smote_20", "SMOTE 20 %"),
+]:
+    a = next(r["auc_pr"] for r in grid_results if r["model"] == f"xgb_{suffix}")
+    b = next(r["auc_pr"] for r in grid_results if r["model"] == f"lgbm_{suffix}")
+    print(f"{label:<24}{a:>10.4f}{b:>11.4f}   {b - a:+.4f}")
+
+# COMMAND ----------
+
+# MAGIC %md
 # MAGIC ## 4. Modèle retenu et enregistrement
 # MAGIC
 # MAGIC Le modèle final est sélectionné sur l'**AUC-PR mesurée en validation**, une
@@ -418,8 +486,10 @@ print("directe — c'est le KPI de la problématique.")
 
 # COMMAND ----------
 
-all_results = results + rebalancing_results
+all_results = results + rebalancing_results + lightgbm_results
 final = max(all_results, key=lambda r: r["auc_pr"])
+
+print(f"Combinaisons évaluées : {len(all_results)}")
 
 print(f"Modèle retenu : {final['model']}")
 print(f"  AUC-PR (validation)  : {final['auc_pr']:.4f}")
@@ -446,7 +516,7 @@ print(f"Modèle enregistré : {config.REGISTERED_MODEL_NAME}  version {registere
 # MAGIC | | |
 # MAGIC |---|---|
 # MAGIC | Découpage | Chronologique, 3 blocs sans chevauchement |
-# MAGIC | Modèles comparés | 4 algorithmes + 4 stratégies de rééquilibrage |
+# MAGIC | Combinaisons évaluées | 4 algorithmes, puis 2 boosting × 4 rééquilibrages |
 # MAGIC | Critère de sélection | AUC-PR sur le bloc de validation |
 # MAGIC | Suivi | MLflow — paramètres, métriques et modèles de chaque run |
 # MAGIC | Registre | Unity Catalog |
