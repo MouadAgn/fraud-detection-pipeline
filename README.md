@@ -75,7 +75,7 @@ Mesurés sur le **bloc de test** — 555 719 transactions du dernier semestre 20
 | 3 — Gold | Variables comportementales (window functions) — 20 variables, 0 fuite temporelle | ✅ |
 | 4 — Modèle | Découpage chronologique, 12 combinaisons comparées, MLflow — XGBoost retenu | ✅ |
 | 5 — Scoring | Seuil par coût métier, SHAP, évaluation finale — **TFP 0,110 %** | ✅ |
-| 6 — Orchestration | Databricks Workflow planifié | ⏳ |
+| 6 — Orchestration | Databricks Workflow — 2 jobs séparés, chaîne complète en **5 min 15** | ✅ |
 | 7 — Dashboard | Alertes et suivi du taux de faux positifs | ⏳ |
 | 8 — Streaming *(bonus)* | Auto Loader + Structured Streaming | ⏳ |
 
@@ -94,6 +94,7 @@ Notes disponibles à ce stade :
 - **[06 — Seuil de décision et faux positifs](docs/memoire/06_seuil_faux_positifs.md)** — seuil par minimisation du coût métier, analyse de sensibilité, et pourquoi « minimiser les faux positifs » ne peut pas être un objectif absolu.
 - **[07 — Explicabilité (SHAP)](docs/memoire/07_explicabilite_shap.md)** — contributions par variable, et pourquoi la variable annoncée comme centrale n'arrive que 13ᵉ.
 - **[08 — Évaluation expérimentale](docs/memoire/08_evaluation_finale.md)** — résultats finaux sur le bloc de test, généralisation et réserves.
+- **[09 — Orchestration](docs/memoire/09_orchestration.md)** — pourquoi deux jobs et non un seul, et ce qui rend un pipeline orchestrable.
 
 Le **[dictionnaire de données](docs/dictionnaire_donnees.md)** décrit en français chacune des 26 colonnes de la couche Silver. Il est généré depuis le code, jamais rédigé à la main.
 
