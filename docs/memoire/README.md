@@ -23,5 +23,5 @@ rejouable.
 | [07 — Explicabilité (SHAP)](07_explicabilite_shap.md) | Étape 5 | Partie 3 — interprétation | ✅ |
 | [08 — Évaluation expérimentale](08_evaluation_finale.md) | Étape 5 | Partie 3 — résultats | ✅ |
 | [09 — Orchestration](09_orchestration.md) | Étape 6 | Partie 2 — industrialisation | ✅ |
-| 10 — Dashboard et KPI | Étape 7 | Partie 3 — analyse des faux positifs | ⏳ |
+| [10 — Tableau de bord et KPI](10_dashboard_kpi.md) | Étape 7 | Partie 3 — analyse des faux positifs | ✅ |
 | 11 — Bilan critique et limites | — | Partie 3 — bilan critique | ⏳ |

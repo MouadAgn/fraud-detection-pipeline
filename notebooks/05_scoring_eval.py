@@ -525,7 +525,7 @@ scored_pdf = pd.DataFrame(
 )
 
 scored = (
-    spark.table(config.GOLD_FEATURES_TABLE)
+    modeling.add_temporal_split(spark.table(config.GOLD_FEATURES_TABLE))
     .join(spark.createDataFrame(scored_pdf), on="transaction_id", how="inner")
     .withColumn("is_flagged", F.col("fraud_score") >= F.lit(DECISION_THRESHOLD))
     .withColumn("decision_threshold", F.lit(DECISION_THRESHOLD))
@@ -534,7 +534,14 @@ scored = (
         "transaction_id", "customer_id", "event_time", "event_date",
         "amount", "merchant_name", "merchant_category",
         "amount_zscore_vs_history", "txn_count_1h", "is_night",
-        "is_fraud", "fraud_score", "is_flagged", "decision_threshold", "_scored_at",
+        "is_fraud", "fraud_score", "is_flagged", "decision_threshold",
+        # Le bloc d'appartenance est conservé, et ce n'est pas un détail : sans
+        # lui, le tableau de bord agrégerait les trois périodes. Or le modèle a
+        # vu les transactions d'entraînement — les métriques calculées dessus
+        # sont optimistes par construction. Seul le bloc de test mesure une
+        # performance honnête, et le dashboard doit pouvoir s'y restreindre.
+        modeling.SPLIT_COL,
+        "_scored_at",
     )
 )
 
@@ -566,8 +573,41 @@ display(
     .filter(F.col("is_flagged"))
     .orderBy(F.col("fraud_score").desc())
     .select("event_time", "amount", "merchant_category", "amount_zscore_vs_history",
-            "txn_count_1h", "is_night", "fraud_score", "is_fraud")
+            "txn_count_1h", "is_night", "fraud_score", "is_fraud", "split")
     .limit(15)
+)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ### Pourquoi les métriques diffèrent selon la période
+# MAGIC
+# MAGIC Le tableau ci-dessous justifie la présence de la colonne `split`. Le modèle
+# MAGIC a **vu** les transactions d'entraînement : les métriques calculées dessus
+# MAGIC sont optimistes par construction et ne mesurent rien d'autre que sa capacité
+# MAGIC à mémoriser.
+# MAGIC
+# MAGIC Un tableau de bord agrégeant les trois périodes afficherait donc un taux de
+# MAGIC faux positifs flatteur et faux. C'est une erreur d'autant plus insidieuse
+# MAGIC qu'elle ne produit aucun message d'erreur.
+
+# COMMAND ----------
+
+display(
+    spark.sql(f"""
+        SELECT
+            split,
+            COUNT(*)                                            AS transactions,
+            SUM(is_fraud)                                       AS fraudes,
+            SUM(CASE WHEN is_flagged AND is_fraud = 0 THEN 1 ELSE 0 END) AS faux_positifs,
+            ROUND(100.0 * SUM(CASE WHEN is_flagged AND is_fraud = 1 THEN 1 ELSE 0 END)
+                  / NULLIF(SUM(is_fraud), 0), 2)                AS rappel_pct,
+            ROUND(100.0 * SUM(CASE WHEN is_flagged AND is_fraud = 0 THEN 1 ELSE 0 END)
+                  / NULLIF(SUM(CASE WHEN is_fraud = 0 THEN 1 ELSE 0 END), 0), 4) AS taux_faux_positifs_pct
+        FROM {config.GOLD_SCORED_TABLE}
+        GROUP BY split
+        ORDER BY MIN(event_time)
+    """)
 )
 
 # COMMAND ----------

@@ -76,7 +76,7 @@ Mesurés sur le **bloc de test** — 555 719 transactions du dernier semestre 20
 | 4 — Modèle | Découpage chronologique, 12 combinaisons comparées, MLflow — XGBoost retenu | ✅ |
 | 5 — Scoring | Seuil par coût métier, SHAP, évaluation finale — **TFP 0,110 %** | ✅ |
 | 6 — Orchestration | Databricks Workflow — 2 jobs séparés, chaîne complète en **5 min 15** | ✅ |
-| 7 — Dashboard | Alertes et suivi du taux de faux positifs | ⏳ |
+| 7 — Dashboard | 7 requêtes Databricks SQL — courbe du TFP, file d'alertes, impact financier | 🔨 |
 | 8 — Streaming *(bonus)* | Auto Loader + Structured Streaming | ⏳ |
 
 ## Documentation
@@ -95,6 +95,7 @@ Notes disponibles à ce stade :
 - **[07 — Explicabilité (SHAP)](docs/memoire/07_explicabilite_shap.md)** — contributions par variable, et pourquoi la variable annoncée comme centrale n'arrive que 13ᵉ.
 - **[08 — Évaluation expérimentale](docs/memoire/08_evaluation_finale.md)** — résultats finaux sur le bloc de test, généralisation et réserves.
 - **[09 — Orchestration](docs/memoire/09_orchestration.md)** — pourquoi deux jobs et non un seul, et ce qui rend un pipeline orchestrable.
+- **[10 — Tableau de bord et KPI](docs/memoire/10_dashboard_kpi.md)** — pourquoi la courbe compte plus que la moyenne, et l'erreur invisible qu'un dashboard peut commettre.
 
 Le **[dictionnaire de données](docs/dictionnaire_donnees.md)** décrit en français chacune des 26 colonnes de la couche Silver. Il est généré depuis le code, jamais rédigé à la main.
 
