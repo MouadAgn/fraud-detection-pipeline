@@ -22,5 +22,9 @@ imbalanced-learn>=0.12,<1.0
 # Modèle alternatif pour la comparaison (étape 4)
 lightgbm>=4.3,<5.0
 
-# Explicabilité du modèle (étape 4)
+# Explicabilité du modèle (étape 5)
 shap>=0.45,<1.0
+
+# Les dépendances de développement (tests) sont dans requirements-dev.txt :
+# ce fichier-ci est installé tel quel dans les notebooks Databricks et ne doit
+# contenir que ce dont le pipeline a besoin pour s'exécuter.

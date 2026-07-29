@@ -69,7 +69,7 @@ Récupération des données : [data/README.md](data/README.md)
 | 1 — Bronze | Ingestion Delta fidèle à la source — 1 852 394 lignes réconciliées | ✅ |
 | 2 — Silver | Typage, contrôles qualité, pseudonymisation RGPD — 0 % de rejet, 116 389 codes postaux réparés | ✅ |
 | 3 — Gold | Variables comportementales (window functions) — 20 variables, 0 fuite temporelle | ✅ |
-| 4 — Modèle | XGBoost + SMOTE, comparaison, seuil, SHAP | ⏳ |
+| 4 — Modèle | Découpage chronologique, SMOTE, comparaison de 4 modèles, MLflow | 🔨 |
 | 5 — Scoring | Table scorée et métriques d'évaluation | ⏳ |
 | 6 — Orchestration | Databricks Workflow planifié | ⏳ |
 | 7 — Dashboard | Alertes et suivi du taux de faux positifs | ⏳ |
@@ -104,7 +104,9 @@ fraud-detection-pipeline/
 │   ├── schemas.py               # contrat de données de la source
 │   ├── quality.py               # moteur de règles qualité et quarantaine
 │   ├── silver.py                # transformation Bronze → Silver
-│   └── features.py              # variables comportementales + contrôles anti-fuite
+│   ├── features.py              # variables comportementales + contrôles anti-fuite
+│   ├── modeling.py              # découpage chronologique, prétraitement
+│   └── metrics.py               # métriques déséquilibre (sans Spark, donc testé)
 ├── scripts/
 │   ├── download_dataset.ps1     # acquisition reproductible des données
 │   ├── profile_dataset.py       # profilage — produit les chiffres des notes
@@ -124,6 +126,10 @@ pip install kaggle
 
 # 2. Vérifier le profilage (produit tous les chiffres cités dans les notes)
 python scripts/profile_dataset.py
+
+# 3. Lancer les tests unitaires des métriques d'évaluation
+pip install -r requirements-dev.txt
+python -m pytest tests/ -v
 ```
 
 Le pipeline lui-même s'exécute sur un workspace [Databricks Free Edition](https://www.databricks.com/learn/free-edition) : importer le dépôt via **Git Folders**, puis exécuter les notebooks dans l'ordre.

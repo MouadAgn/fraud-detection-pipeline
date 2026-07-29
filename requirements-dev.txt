@@ -1,0 +1,21 @@
+# ---------------------------------------------------------------------------
+# Dépendances de développement — exécution des tests en local
+# ---------------------------------------------------------------------------
+# Séparées de requirements.txt, qui est installé tel quel dans les notebooks
+# Databricks : y ajouter des outils de test alourdirait inutilement chaque
+# démarrage de notebook.
+#
+#     py -3.13 -m pip install -r requirements-dev.txt
+#     py -3.13 -m pytest tests/ -v
+#
+# Les tests couvrent `src/fraud/metrics.py`, module volontairement dépourvu de
+# dépendance à Spark. C'est là qu'une erreur de définition — un taux de faux
+# positifs rapporté au mauvais dénominateur, par exemple — fausserait
+# silencieusement toutes les conclusions du mémoire, sans lever la moindre
+# exception ni se voir dans un tableau de résultats.
+# ---------------------------------------------------------------------------
+
+pytest>=8.0
+scikit-learn>=1.4
+pandas>=2.0
+numpy>=1.26

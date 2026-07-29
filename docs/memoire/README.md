@@ -18,7 +18,7 @@ rejouable.
 | [02 — Ingestion Bronze](02_ingestion_bronze.md) | Étape 1 | Partie 2 — chaîne de traitement | ✅ |
 | [03 — Qualité et conformité Silver](03_qualite_silver.md) | Étape 2 | Partie 2 — data cleaning | ✅ |
 | [04 — Feature engineering Gold](04_features_gold.md) | Étape 3 | Partie 2 — variables explicatives | ✅ |
-| 05 — Modélisation et comparaison | Étape 4 | Partie 2 — choix de l'algorithme | ⏳ |
+| [05 — Modélisation et comparaison](05_modelisation.md) | Étape 4 | Partie 2 — choix de l'algorithme | ✅ |
 | 06 — Seuil de décision et faux positifs | Étape 4 | Partie 3 — arbitrage précision/rappel | ⏳ |
 | 07 — Explicabilité (SHAP) | Étape 4 | Partie 3 — interprétation | ⏳ |
 | 08 — Évaluation expérimentale | Étape 5 | Partie 3 — résultats | ⏳ |

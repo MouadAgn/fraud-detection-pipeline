@@ -7,6 +7,9 @@ Ce paquet contient la logique métier *testable*, séparée des notebooks :
 - ``quality``  : moteur générique de règles de qualité et de quarantaine
 - ``silver``   : transformation Bronze → Silver, règles et dictionnaire (étape 2)
 - ``features`` : construction des variables comportementales (étape 3)
+- ``modeling`` : découpage chronologique et prétraitement (étape 4)
+- ``metrics``  : métriques adaptées au déséquilibre — sans dépendance à Spark,
+  donc couvert par ``tests/test_metrics.py``
 
 Pourquoi séparer le code des notebooks ? Parce qu'un notebook n'est pas
 testable ni réutilisable. En isolant les fonctions ici, on peut les couvrir

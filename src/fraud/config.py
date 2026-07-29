@@ -69,6 +69,27 @@ AMOUNT_COL: str = "amt"  # montant de la transaction
 TRANSACTION_ID_COL: str = "trans_num"  # identifiant unique de transaction
 
 # ---------------------------------------------------------------------------
+# Découpage temporel (étape 4)
+# ---------------------------------------------------------------------------
+# En détection de fraude, l'évaluation doit répondre à « le modèle entraîné sur
+# le passé détecte-t-il la fraude de demain ? ». Un tirage aléatoire
+# entraînerait le modèle sur des transactions postérieures à celles du test —
+# situation impossible en production, qui surestime les performances.
+#
+# Le découpage est donc chronologique et à TROIS blocs, et non deux :
+#
+#   entraînement  → ajustement des modèles
+#   validation    → comparaison des modèles et choix du seuil de décision
+#   test          → évaluation finale, jamais consultée avant la fin
+#
+# Le bloc de validation n'est pas un raffinement académique. Choisir le seuil
+# de décision directement sur le jeu de test reviendrait à l'optimiser sur les
+# données censées mesurer la performance : le taux de faux positifs annoncé
+# serait alors optimiste, et c'est précisément le chiffre central du mémoire.
+TRAIN_END: str = "2020-04-01 00:00:00"  # 15 mois d'entraînement
+VALIDATION_END: str = "2020-06-21 12:14:25"  # frontière native du corpus Kaggle
+
+# ---------------------------------------------------------------------------
 # Pseudonymisation (couche Silver)
 # ---------------------------------------------------------------------------
 # Sel utilisé pour le hachage du numéro de carte.
