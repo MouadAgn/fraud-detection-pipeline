@@ -20,7 +20,7 @@ Au-delà de la question de la langue, un dictionnaire de données est un livrabl
 
 ## Table `silver_transactions`
 
-26 colonnes.
+Transactions typées, contrôlées et pseudonymisées. 26 colonnes.
 
 | Colonne | Type | Origine | Description |
 | --- | --- | --- | --- |
@@ -53,6 +53,38 @@ Au-delà de la question de la langue, un dictionnaire de données est un livrabl
 
 ---
 
+## Table `gold_features`
+
+Variables comportementales prêtes pour la modélisation. Reprend les colonnes de contexte de `silver_transactions` et y ajoute les 21 colonnes ci-dessous.
+
+> **Toutes les fenêtres sont bornées aux transactions strictement antérieures du même porteur.** Aucune variable ne contient d'information postérieure à la transaction qu'elle décrit — propriété vérifiée par trois contrôles automatiques dans le notebook `03_gold_features`.
+
+| Colonne | Type | Origine | Description |
+| --- | --- | --- | --- |
+| `txn_count_1h` | BIGINT | `fenêtre 1 h` | Nombre de transactions du porteur dans l'heure précédant celle-ci, transaction courante exclue. Largeur choisie sur mesure : 43,3 % des fraudes surviennent moins d'une heure après la précédente, contre un rythme normal d'une transaction toutes les 4,6 heures. |
+| `txn_count_24h` | BIGINT | `fenêtre 24 h` | Nombre de transactions du porteur dans les 24 heures précédentes, transaction courante exclue. Couvre un cycle d'activité complet. |
+| `txn_count_7d` | BIGINT | `fenêtre 7 j` | Nombre de transactions du porteur dans les 7 jours précédents, transaction courante exclue. Sert de référence d'activité récente. |
+| `amount_sum_1h` | DOUBLE | `fenêtre 1 h` | Montant total dépensé par le porteur dans l'heure précédente. Vaut 0 en l'absence de transaction sur la période. |
+| `amount_sum_24h` | DOUBLE | `fenêtre 24 h` | Montant total dépensé par le porteur dans les 24 heures précédentes. Vaut 0 en l'absence de transaction sur la période. |
+| `amount_sum_7d` | DOUBLE | `fenêtre 7 j` | Montant total dépensé par le porteur dans les 7 jours précédents. Vaut 0 en l'absence de transaction sur la période. |
+| `seconds_since_previous_txn` | BIGINT | `dérivée` | Délai en secondes depuis la transaction précédente du même porteur. Non renseigné pour sa première transaction. |
+| `customer_txn_count_hist` | BIGINT | `historique complet` | Nombre total de transactions antérieures du porteur. Mesure la profondeur d'historique disponible : les variables comportementales sont peu fiables quand elle est faible. |
+| `customer_amount_mean_hist` | DOUBLE | `historique complet` | Montant moyen des transactions antérieures du porteur. Non renseigné pour sa première transaction — un client sans historique n'a pas un montant habituel nul, il n'en a pas. |
+| `customer_amount_std_hist` | DOUBLE | `historique complet` | Écart-type des montants antérieurs du porteur. Non renseigné en deçà de deux transactions. |
+| `customer_amount_max_hist` | DOUBLE | `historique complet` | Montant le plus élevé jamais dépensé par le porteur avant cette transaction. |
+| `amount_zscore_vs_history` | DOUBLE | `dérivée` | Écart du montant courant à la moyenne du porteur, exprimé en nombre d'écarts-types de son propre historique. Variable centrale du dispositif : elle mesure l'inhabituel relatif au client plutôt qu'un seuil absolu, qui pénaliserait les gros dépensiers et laisserait passer les fraudes chez les petits. |
+| `amount_ratio_vs_mean` | DOUBLE | `dérivée` | Rapport entre le montant courant et le montant moyen historique du porteur. Lecture plus directe que le z-score, et robuste lorsque l'écart-type est très faible. |
+| `is_new_merchant_for_customer` | BOOLEAN | `historique (client, commerçant)` | Vrai si le porteur n'a jamais effectué de transaction chez ce commerçant auparavant. Une carte compromise est typiquement utilisée chez des commerçants inconnus du porteur. |
+| `is_new_category_for_customer` | BOOLEAN | `historique (client, catégorie)` | Vrai si le porteur n'a jamais effectué d'achat dans cette catégorie auparavant. |
+| `customer_category_share_hist` | DOUBLE | `dérivée` | Part de cette catégorie dans l'historique d'achat du porteur. Une valeur proche de zéro signale une catégorie marginale pour lui. |
+| `hour_of_day` | INT | `dérivée de event_time` | Heure de la transaction (0 à 23). Signal le plus discriminant du corpus : le taux de fraude est 10 à 30 fois supérieur entre 22 h et 3 h. Cette amplitude tient en partie à la règle de génération du jeu de données simulé, ce qui impose de surveiller son poids dans l'analyse d'explicabilité. |
+| `day_of_week` | INT | `dérivée de event_time` | Jour de la semaine (1 = dimanche, 7 = samedi). |
+| `is_weekend` | BOOLEAN | `dérivée de event_time` | Vrai si la transaction a lieu un samedi ou un dimanche. |
+| `is_night` | BOOLEAN | `dérivée de event_time` | Vrai si la transaction a lieu entre 22 h et 3 h — plage où le taux de fraude observé est le plus élevé. |
+| `_gold_processed_at` | TIMESTAMP | `dérivée` | Horodatage du calcul des variables comportementales (couche Gold). |
+
+---
+
 ## Colonnes de Bronze non reprises en Silver
 
 Toute suppression est une décision, et toute décision se justifie.
@@ -74,3 +106,5 @@ Toute suppression est une décision, et toute décision se justifie.
 - Les colonnes préfixées **`_`** portent la traçabilité technique (ingestion, traitement) et non de la donnée métier.
 - Les colonnes préfixées **`flag_`** sont des indicateurs de qualité : elles signalent une anomalie sans écarter la ligne.
 - Les colonnes préfixées **`customer_`** et **`merchant_`** lèvent l'ambiguïté de la source, où `lat`/`long` et `merch_lat`/`merch_long` désignaient deux entités différentes sans le dire.
+- Les colonnes suffixées **`_hist`** portent sur l'historique **antérieur** du porteur, transaction courante exclue.
+- Les colonnes suffixées **`_1h`**, **`_24h`**, **`_7d`** portent sur une fenêtre glissante précédant la transaction, celle-ci exclue.

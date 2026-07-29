@@ -68,7 +68,7 @@ Récupération des données : [data/README.md](data/README.md)
 | 0 — Mise en place | Structure du dépôt, acquisition et profilage des données | ✅ |
 | 1 — Bronze | Ingestion Delta fidèle à la source — 1 852 394 lignes réconciliées | ✅ |
 | 2 — Silver | Typage, contrôles qualité, pseudonymisation RGPD — 0 % de rejet, 116 389 codes postaux réparés | ✅ |
-| 3 — Gold | Variables comportementales (window functions) | ⏳ |
+| 3 — Gold | Variables comportementales (window functions) | 🔨 |
 | 4 — Modèle | XGBoost + SMOTE, comparaison, seuil, SHAP | ⏳ |
 | 5 — Scoring | Table scorée et métriques d'évaluation | ⏳ |
 | 6 — Orchestration | Databricks Workflow planifié | ⏳ |
@@ -85,6 +85,7 @@ Notes disponibles à ce stade :
 - **[01 — Profilage initial](docs/memoire/01_profilage_initial.md)** — sept constats mesurés qui spécifient le pipeline, dont une incohérence de données détectée par contrôle croisé et une variable préconisée puis écartée sur preuve.
 - **[02 — Ingestion Bronze](docs/memoire/02_ingestion_bronze.md)** — schéma explicite, validation d'en-tête, idempotence et non-partitionnement justifié.
 - **[03 — Qualité et conformité Silver](docs/memoire/03_qualite_silver.md)** — règles de qualité et quarantaine, réparation des codes postaux, pseudonymisation salée.
+- **[04 — Feature engineering Gold](docs/memoire/04_features_gold.md)** — fenêtres glissantes sans fuite temporelle, z-score du montant contre l'historique du porteur, variables écartées sur preuve.
 
 Le **[dictionnaire de données](docs/dictionnaire_donnees.md)** décrit en français chacune des 26 colonnes de la couche Silver. Il est généré depuis le code, jamais rédigé à la main.
 
@@ -102,7 +103,8 @@ fraud-detection-pipeline/
 │   ├── config.py                # nomenclature Unity Catalog centralisée
 │   ├── schemas.py               # contrat de données de la source
 │   ├── quality.py               # moteur de règles qualité et quarantaine
-│   └── silver.py                # transformation Bronze → Silver
+│   ├── silver.py                # transformation Bronze → Silver
+│   └── features.py              # variables comportementales + contrôles anti-fuite
 ├── scripts/
 │   ├── download_dataset.ps1     # acquisition reproductible des données
 │   ├── profile_dataset.py       # profilage — produit les chiffres des notes

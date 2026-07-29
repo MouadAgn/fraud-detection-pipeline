@@ -27,10 +27,12 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SILVER_MODULE = REPO_ROOT / "src" / "fraud" / "silver.py"
+FEATURES_MODULE = REPO_ROOT / "src" / "fraud" / "features.py"
 OUTPUT = REPO_ROOT / "docs" / "dictionnaire_donnees.md"
 
 DICTIONARY_NAME = "SILVER_DATA_DICTIONARY"
 DROPPED_NAME = "DROPPED_COLUMNS"
+GOLD_DICTIONARY_NAME = "GOLD_DATA_DICTIONARY"
 
 
 def extract_dict(module_path: Path, variable: str) -> dict:
@@ -62,7 +64,21 @@ def escape_cell(text: str) -> str:
     return text.replace("|", r"\|").replace("\n", " ")
 
 
-def render(columns: dict, dropped: dict) -> str:
+def render_columns(columns: dict) -> list[str]:
+    """Rend un dictionnaire de colonnes sous forme de tableau Markdown."""
+    lines = [
+        "| Colonne | Type | Origine | Description |",
+        "| --- | --- | --- | --- |",
+    ]
+    lines += [
+        f"| `{name}` | {doc['type']} | `{escape_cell(doc['source'])}` "
+        f"| {escape_cell(doc['comment'])} |"
+        for name, doc in columns.items()
+    ]
+    return lines
+
+
+def render(columns: dict, dropped: dict, gold_columns: dict) -> str:
     lines = [
         "# Dictionnaire de données",
         "",
@@ -94,17 +110,30 @@ def render(columns: dict, dropped: dict) -> str:
         "",
         "## Table `silver_transactions`",
         "",
+        "Transactions typées, contrôlées et pseudonymisées. "
         f"{len(columns)} colonnes.",
         "",
-        "| Colonne | Type | Origine | Description |",
-        "| --- | --- | --- | --- |",
     ]
+    lines += render_columns(columns)
 
-    for name, doc in columns.items():
-        lines.append(
-            f"| `{name}` | {doc['type']} | `{escape_cell(doc['source'])}` "
-            f"| {escape_cell(doc['comment'])} |"
-        )
+    lines += [
+        "",
+        "---",
+        "",
+        "## Table `gold_features`",
+        "",
+        "Variables comportementales prêtes pour la modélisation. Reprend les "
+        "colonnes de contexte de `silver_transactions` et y ajoute les "
+        f"{len(gold_columns)} colonnes ci-dessous.",
+        "",
+        "> **Toutes les fenêtres sont bornées aux transactions strictement "
+        "antérieures du même porteur.** Aucune variable ne contient "
+        "d'information postérieure à la transaction qu'elle décrit — propriété "
+        "vérifiée par trois contrôles automatiques dans le notebook "
+        "`03_gold_features`.",
+        "",
+    ]
+    lines += render_columns(gold_columns)
 
     lines += [
         "",
@@ -133,6 +162,10 @@ def render(columns: dict, dropped: dict) -> str:
         "- Les colonnes préfixées **`customer_`** et **`merchant_`** lèvent "
         "l'ambiguïté de la source, où `lat`/`long` et `merch_lat`/`merch_long` "
         "désignaient deux entités différentes sans le dire.",
+        "- Les colonnes suffixées **`_hist`** portent sur l'historique "
+        "**antérieur** du porteur, transaction courante exclue.",
+        "- Les colonnes suffixées **`_1h`**, **`_24h`**, **`_7d`** portent sur "
+        "une fenêtre glissante précédant la transaction, celle-ci exclue.",
         "",
     ]
     return "\n".join(lines)
@@ -144,11 +177,13 @@ def main() -> None:
 
     columns = extract_dict(SILVER_MODULE, DICTIONARY_NAME)
     dropped = extract_dict(SILVER_MODULE, DROPPED_NAME)
+    gold_columns = extract_dict(FEATURES_MODULE, GOLD_DICTIONARY_NAME)
 
-    OUTPUT.write_text(render(columns, dropped), encoding="utf-8")
+    OUTPUT.write_text(render(columns, dropped, gold_columns), encoding="utf-8")
 
     print(f"Écrit : {OUTPUT.relative_to(REPO_ROOT)}")
-    print(f"  {len(columns)} colonnes documentées")
+    print(f"  {len(columns)} colonnes Silver documentées")
+    print(f"  {len(gold_columns)} colonnes Gold documentées")
     print(f"  {len(dropped)} colonnes supprimées documentées")
 
 
