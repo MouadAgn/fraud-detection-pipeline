@@ -51,11 +51,40 @@ GOLD_SCORED_TABLE: str = fqn("gold_scored_transactions")  # + score et décision
 QUARANTINE_TABLE: str = fqn("silver_quarantine")
 
 # ---------------------------------------------------------------------------
+# Streaming (étape 8)
+# ---------------------------------------------------------------------------
+# Répertoire d'atterrissage : c'est là qu'un système amont déposerait ses
+# fichiers au fil de l'eau. Auto Loader le surveille et n'ingère que les
+# nouveautés.
+LANDING_VOLUME: str = os.getenv("FRAUD_LANDING_VOLUME", "landing")
+
+# Les points de reprise sont ce qui rend un flux redémarrable. Ils mémorisent
+# les fichiers déjà traités et la position atteinte : sans eux, un
+# redémarrage réingérerait tout depuis le début.
+CHECKPOINT_VOLUME: str = os.getenv("FRAUD_CHECKPOINT_VOLUME", "checkpoints")
+
+# Tables produites par la chaîne en flux. Elles sont DISTINCTES des tables
+# batch, volontairement : les deux chaînes doivent pouvoir coexister et être
+# comparées. Écraser les tables batch interdirait toute vérification que le
+# streaming produit bien le même résultat.
+BRONZE_STREAM_TABLE: str = fqn("bronze_transactions_stream")
+SILVER_STREAM_TABLE: str = fqn("silver_transactions_stream")
+SCORED_STREAM_TABLE: str = fqn("gold_scored_stream")
+
+# Profil comportemental par porteur, calculé en batch et consommé par le flux.
+# C'est la clé de voûte de l'architecture streaming (cf. note 11) : les
+# agrégats d'historique ne peuvent pas être recalculés à chaque transaction.
+CUSTOMER_PROFILE_TABLE: str = fqn("gold_customer_profile")
+
+# ---------------------------------------------------------------------------
 # Chemins des fichiers sources dans le volume
 # ---------------------------------------------------------------------------
 VOLUME_PATH: str = f"/Volumes/{CATALOG}/{SCHEMA}/{VOLUME}"
 RAW_TRAIN_PATH: str = f"{VOLUME_PATH}/fraudTrain.csv"
 RAW_TEST_PATH: str = f"{VOLUME_PATH}/fraudTest.csv"
+
+LANDING_PATH: str = f"/Volumes/{CATALOG}/{SCHEMA}/{LANDING_VOLUME}"
+CHECKPOINT_PATH: str = f"/Volumes/{CATALOG}/{SCHEMA}/{CHECKPOINT_VOLUME}"
 
 # ---------------------------------------------------------------------------
 # Colonnes clés du dataset Sparkov

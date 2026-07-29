@@ -77,7 +77,7 @@ Mesurés sur le **bloc de test** — 555 719 transactions du dernier semestre 20
 | 5 — Scoring | Seuil par coût métier, SHAP, évaluation finale — **TFP 0,110 %** | ✅ |
 | 6 — Orchestration | Databricks Workflow — 2 jobs séparés, chaîne complète en **5 min 15** | ✅ |
 | 7 — Dashboard | 7 requêtes Databricks SQL — courbe du TFP, file d'alertes, impact financier | 🔨 |
-| 8 — Streaming *(bonus)* | Auto Loader + Structured Streaming | ⏳ |
+| 8 — Streaming *(bonus)* | Auto Loader, Silver en flux, profil client + jointure flux/statique | 🔨 |
 
 ## Documentation
 
@@ -96,6 +96,7 @@ Notes disponibles à ce stade :
 - **[08 — Évaluation expérimentale](docs/memoire/08_evaluation_finale.md)** — résultats finaux sur le bloc de test, généralisation et réserves.
 - **[09 — Orchestration](docs/memoire/09_orchestration.md)** — pourquoi deux jobs et non un seul, et ce qui rend un pipeline orchestrable.
 - **[10 — Tableau de bord et KPI](docs/memoire/10_dashboard_kpi.md)** — pourquoi la courbe compte plus que la moyenne, et l'erreur invisible qu'un dashboard peut commettre.
+- **[11 — Traitement en flux](docs/memoire/11_streaming.md)** — ce que le streaming change vraiment, la déduplication qui ne se transpose pas, et pourquoi les variables comportementales exigent un feature store.
 
 Le **[dictionnaire de données](docs/dictionnaire_donnees.md)** décrit en français chacune des 26 colonnes de la couche Silver. Il est généré depuis le code, jamais rédigé à la main.
 
@@ -108,7 +109,7 @@ fraud-detection-pipeline/
 │   ├── dictionnaire_donnees.md  # dictionnaire de données FR (généré depuis le code)
 │   └── memoire/                 # notes justificatives par étape (FR)
 ├── data/                        # jeu de données (non versionné)
-├── notebooks/                   # 00_setup → 05_scoring, exécutés sur Databricks
+├── notebooks/                   # 00_setup → 07_streaming, exécutés sur Databricks
 ├── src/fraud/                   # code réutilisable et testable
 │   ├── config.py                # nomenclature Unity Catalog centralisée
 │   ├── schemas.py               # contrat de données de la source

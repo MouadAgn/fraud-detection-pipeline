@@ -49,7 +49,7 @@ DROPPED_COLUMNS: dict[str, str] = {
 }
 
 
-def add_validation_helpers(df: DataFrame) -> DataFrame:
+def add_validation_helpers(df: DataFrame, deduplicate: bool = True) -> DataFrame:
     """Ajoute les colonnes dérivées nécessaires aux règles de qualité.
 
     Ces colonnes sont calculées **avant** l'application des règles, car les
@@ -61,12 +61,22 @@ def add_validation_helpers(df: DataFrame) -> DataFrame:
     index de ligne). Sans tri stable, deux exécutions pourraient conserver des
     exemplaires différents d'un même doublon, et le pipeline cesserait d'être
     reproductible.
-    """
-    dedup_window = Window.partitionBy("trans_num").orderBy(
-        F.col("_source_file").asc(), F.col("source_row_index").cast("long").asc()
-    )
 
-    return (
+    Args:
+        deduplicate: à mettre à ``False`` en traitement de flux.
+
+            ``row_number()`` suppose un **classement global** de toutes les
+            lignes partageant un identifiant. En streaming, cette information
+            n'existe pas : le prochain micro-lot pourrait contenir un
+            exemplaire qui aurait dû arriver en premier, et Spark refuse donc
+            cette opération sur un DataFrame en flux.
+
+            L'équivalent en flux est ``dropDuplicatesWithinWatermark``, qui
+            déduplique sur une fenêtre temporelle bornée plutôt que sur
+            l'historique complet. Il est appliqué directement dans le notebook
+            de streaming — voir ``docs/memoire/11_streaming.md``.
+    """
+    typed = (
         df.withColumn(PARSED_EVENT_TIME, F.to_timestamp("trans_date_trans_time"))
         .withColumn(PARSED_AMOUNT, F.col("amt").cast("double"))
         .withColumn(
@@ -75,8 +85,18 @@ def add_validation_helpers(df: DataFrame) -> DataFrame:
                 F.months_between(F.col(PARSED_EVENT_TIME), F.to_date("dob")) / F.lit(12)
             ).cast("int"),
         )
-        .withColumn(DUPLICATE_RANK, F.row_number().over(dedup_window))
     )
+
+    if not deduplicate:
+        # La règle de doublon ne sera pas évaluée : on neutralise la colonne
+        # plutôt que de la supprimer, pour que le schéma reste identique entre
+        # les deux modes.
+        return typed.withColumn(DUPLICATE_RANK, F.lit(1))
+
+    dedup_window = Window.partitionBy("trans_num").orderBy(
+        F.col("_source_file").asc(), F.col("source_row_index").cast("long").asc()
+    )
+    return typed.withColumn(DUPLICATE_RANK, F.row_number().over(dedup_window))
 
 
 def _is_blank(column: str) -> Column:
