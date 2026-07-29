@@ -76,7 +76,13 @@
         {
           "widget": {
             "name": "titre",
-            "textbox_spec": "# Détection de fraude — suivi du taux de faux positifs\n\nMesures établies sur le **bloc de test** : 555 719 transactions du second semestre 2020, jamais vues par le modèle. Les périodes d'entraînement et de validation sont exclues — les métriques calculées dessus seraient optimistes par construction."
+            "multilineTextboxSpec": {
+              "lines": [
+                "# Détection de fraude — suivi du taux de faux positifs\n",
+                "\n",
+                "Mesures établies sur le **bloc de test** : 555 719 transactions du second semestre 2020, jamais vues par le modèle. Les périodes d'entraînement et de validation sont exclues — les métriques calculées dessus seraient optimistes par construction."
+              ]
+            }
           },
           "position": {
             "x": 0,
@@ -407,32 +413,32 @@
                   "datasetName": "file_alertes",
                   "fields": [
                     {
-                      "name": "horodatage",
-                      "expression": "`horodatage`"
+                      "name": "categorie",
+                      "expression": "`categorie`"
                     },
                     {
                       "name": "montant",
                       "expression": "`montant`"
                     },
                     {
-                      "name": "categorie",
-                      "expression": "`categorie`"
+                      "name": "horodatage",
+                      "expression": "`horodatage`"
                     },
                     {
-                      "name": "ecart_habitudes",
-                      "expression": "`ecart_habitudes`"
-                    },
-                    {
-                      "name": "txn_derniere_heure",
-                      "expression": "`txn_derniere_heure`"
+                      "name": "issue",
+                      "expression": "`issue`"
                     },
                     {
                       "name": "score",
                       "expression": "`score`"
                     },
                     {
-                      "name": "issue",
-                      "expression": "`issue`"
+                      "name": "txn_derniere_heure",
+                      "expression": "`txn_derniere_heure`"
+                    },
+                    {
+                      "name": "ecart_habitudes",
+                      "expression": "`ecart_habitudes`"
                     }
                   ],
                   "disaggregated": true
@@ -440,212 +446,40 @@
               }
             ],
             "spec": {
-              "version": 1,
-              "widgetType": "table",
+              "version": 2,
               "frame": {
-                "title": "File d'alertes à traiter",
                 "showTitle": true,
-                "description": "Triée par score décroissant, avec le contexte qui justifie chaque remontée",
-                "showDescription": true
+                "title": "File d'alertes à traiter\n"
               },
+              "widgetType": "table",
               "encodings": {
                 "columns": [
                   {
-                    "fieldName": "horodatage",
-                    "booleanValues": [
-                      "false",
-                      "true"
-                    ],
-                    "imageUrlTemplate": "{{ @ }}",
-                    "imageTitleTemplate": "{{ @ }}",
-                    "imageWidth": "",
-                    "imageHeight": "",
-                    "linkUrlTemplate": "{{ @ }}",
-                    "linkTextTemplate": "{{ @ }}",
-                    "linkTitleTemplate": "{{ @ }}",
-                    "linkOpenInNewTab": true,
-                    "type": "datetime",
-                    "displayAs": "datetime",
-                    "visible": true,
-                    "order": 0,
-                    "title": "Horodatage",
-                    "allowSearch": false,
-                    "alignContent": "left",
-                    "allowHTML": false,
-                    "highlightLinks": false,
-                    "useMonospaceFont": false,
-                    "preserveWhitespace": false,
-                    "displayName": "horodatage"
+                    "fieldName": "categorie"
                   },
                   {
-                    "fieldName": "montant",
-                    "booleanValues": [
-                      "false",
-                      "true"
-                    ],
-                    "imageUrlTemplate": "{{ @ }}",
-                    "imageTitleTemplate": "{{ @ }}",
-                    "imageWidth": "",
-                    "imageHeight": "",
-                    "linkUrlTemplate": "{{ @ }}",
-                    "linkTextTemplate": "{{ @ }}",
-                    "linkTitleTemplate": "{{ @ }}",
-                    "linkOpenInNewTab": true,
-                    "type": "float",
-                    "displayAs": "number",
-                    "visible": true,
-                    "order": 1,
-                    "title": "Montant ($)",
-                    "allowSearch": false,
-                    "alignContent": "right",
-                    "allowHTML": false,
-                    "highlightLinks": false,
-                    "useMonospaceFont": false,
-                    "preserveWhitespace": false,
-                    "displayName": "montant"
+                    "fieldName": "montant"
                   },
                   {
-                    "fieldName": "categorie",
-                    "booleanValues": [
-                      "false",
-                      "true"
-                    ],
-                    "imageUrlTemplate": "{{ @ }}",
-                    "imageTitleTemplate": "{{ @ }}",
-                    "imageWidth": "",
-                    "imageHeight": "",
-                    "linkUrlTemplate": "{{ @ }}",
-                    "linkTextTemplate": "{{ @ }}",
-                    "linkTitleTemplate": "{{ @ }}",
-                    "linkOpenInNewTab": true,
-                    "type": "string",
-                    "displayAs": "string",
-                    "visible": true,
-                    "order": 2,
-                    "title": "Categorie",
-                    "allowSearch": false,
-                    "alignContent": "left",
-                    "allowHTML": false,
-                    "highlightLinks": false,
-                    "useMonospaceFont": false,
-                    "preserveWhitespace": false,
-                    "displayName": "categorie"
+                    "fieldName": "horodatage"
                   },
                   {
-                    "fieldName": "ecart_habitudes",
-                    "booleanValues": [
-                      "false",
-                      "true"
-                    ],
-                    "imageUrlTemplate": "{{ @ }}",
-                    "imageTitleTemplate": "{{ @ }}",
-                    "imageWidth": "",
-                    "imageHeight": "",
-                    "linkUrlTemplate": "{{ @ }}",
-                    "linkTextTemplate": "{{ @ }}",
-                    "linkTitleTemplate": "{{ @ }}",
-                    "linkOpenInNewTab": true,
-                    "type": "float",
-                    "displayAs": "number",
-                    "visible": true,
-                    "order": 3,
-                    "title": "Ecart aux habitudes",
-                    "allowSearch": false,
-                    "alignContent": "right",
-                    "allowHTML": false,
-                    "highlightLinks": false,
-                    "useMonospaceFont": false,
-                    "preserveWhitespace": false,
-                    "displayName": "ecart_habitudes"
+                    "fieldName": "issue"
                   },
                   {
-                    "fieldName": "txn_derniere_heure",
-                    "booleanValues": [
-                      "false",
-                      "true"
-                    ],
-                    "imageUrlTemplate": "{{ @ }}",
-                    "imageTitleTemplate": "{{ @ }}",
-                    "imageWidth": "",
-                    "imageHeight": "",
-                    "linkUrlTemplate": "{{ @ }}",
-                    "linkTextTemplate": "{{ @ }}",
-                    "linkTitleTemplate": "{{ @ }}",
-                    "linkOpenInNewTab": true,
-                    "type": "integer",
-                    "displayAs": "number",
-                    "visible": true,
-                    "order": 4,
-                    "title": "Txn derniere heure",
-                    "allowSearch": false,
-                    "alignContent": "right",
-                    "allowHTML": false,
-                    "highlightLinks": false,
-                    "useMonospaceFont": false,
-                    "preserveWhitespace": false,
-                    "displayName": "txn_derniere_heure"
+                    "fieldName": "score"
                   },
                   {
-                    "fieldName": "score",
-                    "booleanValues": [
-                      "false",
-                      "true"
-                    ],
-                    "imageUrlTemplate": "{{ @ }}",
-                    "imageTitleTemplate": "{{ @ }}",
-                    "imageWidth": "",
-                    "imageHeight": "",
-                    "linkUrlTemplate": "{{ @ }}",
-                    "linkTextTemplate": "{{ @ }}",
-                    "linkTitleTemplate": "{{ @ }}",
-                    "linkOpenInNewTab": true,
-                    "type": "float",
-                    "displayAs": "number",
-                    "visible": true,
-                    "order": 5,
-                    "title": "Score",
-                    "allowSearch": false,
-                    "alignContent": "right",
-                    "allowHTML": false,
-                    "highlightLinks": false,
-                    "useMonospaceFont": false,
-                    "preserveWhitespace": false,
-                    "displayName": "score"
+                    "fieldName": "txn_derniere_heure"
                   },
                   {
-                    "fieldName": "issue",
-                    "booleanValues": [
-                      "false",
-                      "true"
-                    ],
-                    "imageUrlTemplate": "{{ @ }}",
-                    "imageTitleTemplate": "{{ @ }}",
-                    "imageWidth": "",
-                    "imageHeight": "",
-                    "linkUrlTemplate": "{{ @ }}",
-                    "linkTextTemplate": "{{ @ }}",
-                    "linkTitleTemplate": "{{ @ }}",
-                    "linkOpenInNewTab": true,
-                    "type": "string",
-                    "displayAs": "string",
-                    "visible": true,
-                    "order": 6,
-                    "title": "Issue reelle",
-                    "allowSearch": false,
-                    "alignContent": "left",
-                    "allowHTML": false,
-                    "highlightLinks": false,
-                    "useMonospaceFont": false,
-                    "preserveWhitespace": false,
-                    "displayName": "issue"
+                    "fieldName": "ecart_habitudes"
                   }
                 ]
               },
-              "allowHTMLByDefault": false,
-              "itemsPerPage": 25,
-              "paginationSize": 25,
-              "condensed": true,
-              "withRowNumber": false
+              "data": {
+                "queryName": "main_query"
+              }
             }
           },
           "position": {
@@ -655,7 +489,14 @@
             "height": 10
           }
         }
-      ]
+      ],
+      "pageType": "PAGE_TYPE_CANVAS"
     }
-  ]
+  ],
+  "uiSettings": {
+    "theme": {
+      "widgetHeaderAlignment": "ALIGNMENT_UNSPECIFIED"
+    },
+    "applyModeEnabled": false
+  }
 }
