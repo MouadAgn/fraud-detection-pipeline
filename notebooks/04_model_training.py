@@ -61,6 +61,7 @@ if SRC_PATH not in sys.path:
     sys.path.insert(0, SRC_PATH)
 
 import mlflow
+import numpy as np
 from imblearn.over_sampling import SMOTE
 from imblearn.pipeline import Pipeline as ImbPipeline
 from lightgbm import LGBMClassifier
@@ -477,23 +478,121 @@ for suffix, label in [
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## 4. Modèle retenu et enregistrement
+# MAGIC ## 4. Stabilité : le critère que le meilleur score ignore
 # MAGIC
-# MAGIC Le modèle final est sélectionné sur l'**AUC-PR mesurée en validation**, une
-# MAGIC métrique indépendante du seuil. Le seuil sera choisi séparément à l'étape 5,
-# MAGIC également sur la validation — le bloc de test reste intact jusqu'à
-# MAGIC l'évaluation finale.
+# MAGIC Le plan complet fait apparaître une **anomalie** : `lgbm_smote_02` voit son
+# MAGIC AUC-PR s'effondrer alors que son AUC-ROC reste élevée. Une seule modification
+# MAGIC du taux de rééquilibrage suffit à faire basculer le modèle.
+# MAGIC
+# MAGIC Ce constat impose une question que le classement par score ignore : **quelle
+# MAGIC est l'amplitude de performance de chaque algorithme sur l'ensemble des
+# MAGIC configurations ?** Un modèle qui ne tient que sur un réglage précis est
+# MAGIC dangereux en production, où les données dérivent sans que personne ne
+# MAGIC réajuste quoi que ce soit.
 
 # COMMAND ----------
 
+print(f"{'Algorithme':<14}{'Min':>9}{'Max':>9}{'Amplitude':>12}{'Écart-type':>13}")
+print("-" * 57)
+
+stability = {}
+for prefix, label in [("xgb_", "XGBoost"), ("lgbm_", "LightGBM")]:
+    scores = [r["auc_pr"] for r in grid_results if r["model"].startswith(prefix)]
+    spread = max(scores) - min(scores)
+    stability[label] = spread
+    print(
+        f"{label:<14}{min(scores):>9.4f}{max(scores):>9.4f}"
+        f"{spread:>12.4f}{float(np.std(scores)):>13.4f}"
+    )
+
+print()
+print("Lecture : à configuration variable, l'amplitude mesure la robustesse.")
+print("Un écart faible signifie que le modèle tient sans réglage fin.")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ### L'anomalie est-elle réelle ou un coup de malchance ?
+# MAGIC
+# MAGIC Un effondrement peut venir d'un tirage aléatoire malheureux. Avant d'en tirer
+# MAGIC une conclusion, la configuration en cause est réentraînée avec **trois graines
+# MAGIC différentes**.
+# MAGIC
+# MAGIC Les deux issues possibles mènent à la même conclusion, ce qui rend le test
+# MAGIC concluant dans tous les cas : si le résultat est systématiquement bas, la
+# MAGIC configuration est mauvaise ; s'il varie fortement d'une graine à l'autre, le
+# MAGIC modèle est instable. Dans les deux cas, on ne peut pas s'y fier.
+
+# COMMAND ----------
+
+seed_scores = []
+for seed in (7, 123, 2024):
+    outcome = train_and_evaluate(
+        f"lgbm_smote_02_seed{seed}",
+        lgbm(random_state=seed),
+        False,
+        SMOTE(sampling_strategy=0.02, random_state=seed),
+        {"phase": "stabilite"},
+    )
+    seed_scores.append(outcome["auc_pr"])
+
+reference = next(r["auc_pr"] for r in grid_results if r["model"] == "lgbm_smote_02")
+all_runs = seed_scores + [reference]
+
+print()
+print(f"AUC-PR sur 4 graines : {[round(s, 4) for s in all_runs]}")
+print(f"  amplitude : {max(all_runs) - min(all_runs):.4f}")
+print(f"  moyenne   : {float(np.mean(all_runs)):.4f}")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## 5. Modèle retenu et enregistrement
+# MAGIC
+# MAGIC ### La sélection n'est pas automatique
+# MAGIC
+# MAGIC Retenir mécaniquement le meilleur AUC-PR conduirait à `lgbm_smote_20`. Ce
+# MAGIC serait une erreur : ce point est le maximum d'une famille dont l'amplitude
+# MAGIC dépasse 0,38, alors que XGBoost reste dans un mouchoir de poche quelle que
+# MAGIC soit la stratégie de rééquilibrage.
+# MAGIC
+# MAGIC Le modèle retenu est donc **XGBoost sans rééquilibrage**, sur trois critères :
+# MAGIC
+# MAGIC | Critère | Justification |
+# MAGIC |---|---|
+# MAGIC | **Robustesse** | Amplitude de 0,007 sur les quatre configurations, contre 0,38 pour LightGBM |
+# MAGIC | **Performance** | 0,9805 d'AUC-PR, à 0,4 % du meilleur score absolu |
+# MAGIC | **Simplicité** | Aucune donnée synthétique générée : moins d'hypothèses, entraînement plus rapide, comportement plus facile à expliquer |
+# MAGIC
+# MAGIC Il affiche par ailleurs la **meilleure précision** (0,9813) et le **plus bas
+# MAGIC taux de faux positifs** du plan — ce qui est exactement l'objectif poursuivi.
+# MAGIC
+# MAGIC > Le rééquilibrage a donc été testé, mesuré, et **écarté sur preuve**. C'est
+# MAGIC > un résultat, non un renoncement : appliquer SMOTE par réflexe aurait dégradé
+# MAGIC > la performance sans que rien ne le signale.
+
+# COMMAND ----------
+
+# Sélection explicite plutôt qu'un `max()` sur une métrique : le choix engage un
+# arbitrage entre performance et robustesse, qui ne se réduit pas à un scalaire.
+FINAL_MODEL = "xgb_sans_reequilibrage"
+
 all_results = results + rebalancing_results + lightgbm_results
-final = max(all_results, key=lambda r: r["auc_pr"])
+final = next((r for r in all_results if r["model"] == FINAL_MODEL), None)
+if final is None:
+    raise ValueError(f"'{FINAL_MODEL}' est absent des résultats évalués.")
+
+best_scoring = max(all_results, key=lambda r: r["auc_pr"])
 
 print(f"Combinaisons évaluées : {len(all_results)}")
-
-print(f"Modèle retenu : {final['model']}")
-print(f"  AUC-PR (validation)  : {final['auc_pr']:.4f}")
+print()
+print(f"Meilleur score brut : {best_scoring['model']} (AUC-PR {best_scoring['auc_pr']:.4f})")
+print(f"Modèle retenu       : {final['model']} (AUC-PR {final['auc_pr']:.4f})")
+print(f"  écart au meilleur  : {100 * (final['auc_pr'] - best_scoring['auc_pr']) / best_scoring['auc_pr']:+.2f} %")
+print()
 print(f"  AUC-ROC (validation) : {final['auc_roc']:.4f}")
+print(f"  Précision            : {final['precision']:.4f}   (la meilleure du plan)")
+print(f"  Taux de faux positifs: {final['false_positive_rate']:.4f}")
 print(f"  Identifiant du run   : {final['run_id']}")
 
 # COMMAND ----------
@@ -517,7 +616,8 @@ print(f"Modèle enregistré : {config.REGISTERED_MODEL_NAME}  version {registere
 # MAGIC |---|---|
 # MAGIC | Découpage | Chronologique, 3 blocs sans chevauchement |
 # MAGIC | Combinaisons évaluées | 4 algorithmes, puis 2 boosting × 4 rééquilibrages |
-# MAGIC | Critère de sélection | AUC-PR sur le bloc de validation |
+# MAGIC | Critère de sélection | AUC-PR **et amplitude** sur le plan complet |
+# MAGIC | Modèle retenu | XGBoost sans rééquilibrage |
 # MAGIC | Suivi | MLflow — paramètres, métriques et modèles de chaque run |
 # MAGIC | Registre | Unity Catalog |
 # MAGIC | Bloc de test | **jamais consulté** |
@@ -543,6 +643,12 @@ print(f"Modèle enregistré : {config.REGISTERED_MODEL_NAME}  version {registere
 # MAGIC 5. **Pourquoi une régression logistique dans la comparaison ?** Pour
 # MAGIC    justifier la complexité. Si XGBoost ne la bat pas nettement, sa
 # MAGIC    complexité n'est pas défendable.
+# MAGIC 6. **Pourquoi ne pas retenir le meilleur score ?** Parce que le meilleur
+# MAGIC    score appartient à une famille instable : LightGBM varie de 0,60 à 0,98
+# MAGIC    selon la stratégie de rééquilibrage, quand XGBoost tient dans un
+# MAGIC    intervalle de 0,007. Un modèle qui ne fonctionne que sur un réglage
+# MAGIC    précis est un risque en production, où les données dérivent sans
+# MAGIC    réajustement. On retient la robustesse, pas le maximum.
 # MAGIC
 # MAGIC **Étape suivante** : `05_scoring_eval` — optimisation du seuil de décision,
 # MAGIC explicabilité SHAP, évaluation finale sur le bloc de test.
