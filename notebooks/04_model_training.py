@@ -313,9 +313,12 @@ def train_and_evaluate(name, estimator, scale, sampler, run_tags=None):
 
 # COMMAND ----------
 
+# `SMOTE` ne prend plus de paramètre `n_jobs` : déprécié en imbalanced-learn
+# 0.10, retiré en 0.12. La parallélisation de la recherche de voisins est
+# désormais gérée en interne.
 results = []
 for name, (estimator, scale) in MODELS.items():
-    sampler = SMOTE(sampling_strategy=SMOTE_RATIO, random_state=RANDOM_STATE, n_jobs=-1)
+    sampler = SMOTE(sampling_strategy=SMOTE_RATIO, random_state=RANDOM_STATE)
     results.append(
         train_and_evaluate(name, estimator, scale, sampler, {"phase": "comparaison"})
     )
@@ -384,8 +387,8 @@ def xgb(**overrides):
 REBALANCING_STRATEGIES = {
     "xgb_sans_reequilibrage": (xgb(), None),
     "xgb_scale_pos_weight": (xgb(scale_pos_weight=scale_pos_weight), None),
-    "xgb_smote_02": (xgb(), SMOTE(sampling_strategy=0.02, random_state=RANDOM_STATE, n_jobs=-1)),
-    "xgb_smote_20": (xgb(), SMOTE(sampling_strategy=0.20, random_state=RANDOM_STATE, n_jobs=-1)),
+    "xgb_smote_02": (xgb(), SMOTE(sampling_strategy=0.02, random_state=RANDOM_STATE)),
+    "xgb_smote_20": (xgb(), SMOTE(sampling_strategy=0.20, random_state=RANDOM_STATE)),
 }
 
 rebalancing_results = []
