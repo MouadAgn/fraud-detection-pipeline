@@ -1,0 +1,356 @@
+{
+  "datasets": [
+    {
+      "name": "indicateurs_cles",
+      "displayName": "Indicateurs clés",
+      "queryLines": [
+        "SELECT\n",
+        "    COUNT(*)                                                         AS transactions,\n",
+        "    SUM(is_fraud)                                                    AS fraudes_reelles,\n",
+        "    SUM(CASE WHEN is_flagged AND is_fraud = 1 THEN 1 ELSE 0 END)     AS fraudes_detectees,\n",
+        "    SUM(CASE WHEN is_flagged AND is_fraud = 0 THEN 1 ELSE 0 END)     AS faux_positifs,\n",
+        "    ROUND(100.0 * SUM(CASE WHEN is_flagged AND is_fraud = 1 THEN 1 ELSE 0 END)\n",
+        "          / NULLIF(SUM(is_fraud), 0), 2)                             AS rappel_pct,\n",
+        "    ROUND(100.0 * SUM(CASE WHEN is_flagged AND is_fraud = 0 THEN 1 ELSE 0 END)\n",
+        "          / NULLIF(SUM(CASE WHEN is_fraud = 0 THEN 1 ELSE 0 END), 0), 4) AS taux_faux_positifs_pct,\n",
+        "    ROUND(1.0 * SUM(CASE WHEN is_flagged THEN 1 ELSE 0 END)\n",
+        "          / NULLIF(SUM(CASE WHEN is_flagged AND is_fraud = 1 THEN 1 ELSE 0 END), 0), 2) AS alertes_par_fraude\n",
+        "FROM workspace.fraud_detection.gold_scored_transactions\n",
+        "WHERE split = 'test'"
+      ]
+    },
+    {
+      "name": "evolution_hebdomadaire",
+      "displayName": "Évolution hebdomadaire",
+      "queryLines": [
+        "SELECT\n",
+        "    DATE_TRUNC('WEEK', event_date)                                   AS semaine,\n",
+        "    ROUND(100.0 * SUM(CASE WHEN is_flagged AND is_fraud = 0 THEN 1 ELSE 0 END)\n",
+        "          / NULLIF(SUM(CASE WHEN is_fraud = 0 THEN 1 ELSE 0 END), 0), 4) AS taux_faux_positifs_pct,\n",
+        "    ROUND(100.0 * SUM(CASE WHEN is_flagged AND is_fraud = 1 THEN 1 ELSE 0 END)\n",
+        "          / NULLIF(SUM(is_fraud), 0), 2)                             AS rappel_pct,\n",
+        "    SUM(CASE WHEN is_flagged AND is_fraud = 0 THEN 1 ELSE 0 END)     AS faux_positifs\n",
+        "FROM workspace.fraud_detection.gold_scored_transactions\n",
+        "WHERE split = 'test'\n",
+        "GROUP BY DATE_TRUNC('WEEK', event_date)\n",
+        "ORDER BY semaine"
+      ]
+    },
+    {
+      "name": "file_alertes",
+      "displayName": "File d'alertes",
+      "queryLines": [
+        "SELECT\n",
+        "    event_time                                                       AS horodatage,\n",
+        "    ROUND(amount, 2)                                                 AS montant,\n",
+        "    merchant_category                                                AS categorie,\n",
+        "    ROUND(amount_zscore_vs_history, 2)                               AS ecart_habitudes,\n",
+        "    txn_count_1h                                                     AS txn_derniere_heure,\n",
+        "    ROUND(fraud_score, 4)                                            AS score,\n",
+        "    CASE WHEN is_fraud = 1 THEN 'Fraude confirmée' ELSE 'Fausse alerte' END AS issue\n",
+        "FROM workspace.fraud_detection.gold_scored_transactions\n",
+        "WHERE split = 'test' AND is_flagged\n",
+        "ORDER BY fraud_score DESC\n",
+        "LIMIT 100"
+      ]
+    },
+    {
+      "name": "faux_positifs_par_categorie",
+      "displayName": "Faux positifs par catégorie",
+      "queryLines": [
+        "SELECT\n",
+        "    merchant_category                                                AS categorie,\n",
+        "    SUM(CASE WHEN is_flagged AND is_fraud = 0 THEN 1 ELSE 0 END)     AS faux_positifs\n",
+        "FROM workspace.fraud_detection.gold_scored_transactions\n",
+        "WHERE split = 'test'\n",
+        "GROUP BY merchant_category\n",
+        "ORDER BY faux_positifs DESC"
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "name": "page_principale",
+      "displayName": "Suivi des faux positifs",
+      "layout": [
+        {
+          "widget": {
+            "name": "titre",
+            "textbox_spec": "# Détection de fraude — suivi du taux de faux positifs\n\nMesures établies sur le **bloc de test** : 555 719 transactions du second semestre 2020, jamais vues par le modèle. Les périodes d'entraînement et de validation sont exclues — les métriques calculées dessus seraient optimistes par construction."
+          },
+          "position": { "x": 0, "y": 0, "width": 6, "height": 3 }
+        },
+        {
+          "widget": {
+            "name": "kpi_taux_faux_positifs",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "indicateurs_cles",
+                  "fields": [
+                    { "name": "taux_faux_positifs_pct", "expression": "`taux_faux_positifs_pct`" }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "taux_faux_positifs_pct",
+                  "displayName": "Taux de faux positifs (%)"
+                }
+              }
+            }
+          },
+          "position": { "x": 0, "y": 3, "width": 3, "height": 4 }
+        },
+        {
+          "widget": {
+            "name": "kpi_rappel",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "indicateurs_cles",
+                  "fields": [{ "name": "rappel_pct", "expression": "`rappel_pct`" }],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": { "fieldName": "rappel_pct", "displayName": "Fraudes détectées (%)" }
+              }
+            }
+          },
+          "position": { "x": 3, "y": 3, "width": 3, "height": 4 }
+        },
+        {
+          "widget": {
+            "name": "kpi_alertes_par_fraude",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "indicateurs_cles",
+                  "fields": [
+                    { "name": "alertes_par_fraude", "expression": "`alertes_par_fraude`" }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "alertes_par_fraude",
+                  "displayName": "Alertes examinées par fraude trouvée"
+                }
+              }
+            }
+          },
+          "position": { "x": 0, "y": 7, "width": 3, "height": 4 }
+        },
+        {
+          "widget": {
+            "name": "kpi_faux_positifs",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "indicateurs_cles",
+                  "fields": [{ "name": "faux_positifs", "expression": "`faux_positifs`" }],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": { "fieldName": "faux_positifs", "displayName": "Fausses alertes" }
+              }
+            }
+          },
+          "position": { "x": 3, "y": 7, "width": 3, "height": 4 }
+        },
+        {
+          "widget": {
+            "name": "courbe_faux_positifs",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "evolution_hebdomadaire",
+                  "fields": [
+                    { "name": "semaine", "expression": "`semaine`" },
+                    { "name": "taux_faux_positifs_pct", "expression": "`taux_faux_positifs_pct`" }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "line",
+              "frame": {
+                "title": "Taux de faux positifs par semaine",
+                "showTitle": true,
+                "description": "Stabilité du KPI sur les 27 semaines du bloc de test",
+                "showDescription": true
+              },
+              "encodings": {
+                "x": {
+                  "fieldName": "semaine",
+                  "scale": { "type": "temporal" },
+                  "displayName": "Semaine"
+                },
+                "y": {
+                  "fieldName": "taux_faux_positifs_pct",
+                  "scale": { "type": "quantitative" },
+                  "displayName": "Taux de faux positifs (%)"
+                }
+              }
+            }
+          },
+          "position": { "x": 0, "y": 11, "width": 6, "height": 8 }
+        },
+        {
+          "widget": {
+            "name": "courbe_rappel",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "evolution_hebdomadaire",
+                  "fields": [
+                    { "name": "semaine", "expression": "`semaine`" },
+                    { "name": "rappel_pct", "expression": "`rappel_pct`" }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "line",
+              "frame": {
+                "title": "Fraudes détectées par semaine (%)",
+                "showTitle": true,
+                "description": "À lire conjointement au taux de faux positifs : les deux forment l'arbitrage",
+                "showDescription": true
+              },
+              "encodings": {
+                "x": {
+                  "fieldName": "semaine",
+                  "scale": { "type": "temporal" },
+                  "displayName": "Semaine"
+                },
+                "y": {
+                  "fieldName": "rappel_pct",
+                  "scale": { "type": "quantitative" },
+                  "displayName": "Rappel (%)"
+                }
+              }
+            }
+          },
+          "position": { "x": 0, "y": 19, "width": 6, "height": 8 }
+        },
+        {
+          "widget": {
+            "name": "faux_positifs_categorie",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "faux_positifs_par_categorie",
+                  "fields": [
+                    { "name": "categorie", "expression": "`categorie`" },
+                    { "name": "faux_positifs", "expression": "`faux_positifs`" }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "frame": {
+                "title": "Où se concentrent les fausses alertes",
+                "showTitle": true,
+                "description": "Piste d'amélioration : une catégorie surreprésentée mérite une variable dédiée ou un seuil propre",
+                "showDescription": true
+              },
+              "encodings": {
+                "x": {
+                  "fieldName": "faux_positifs",
+                  "scale": { "type": "quantitative" },
+                  "displayName": "Fausses alertes"
+                },
+                "y": {
+                  "fieldName": "categorie",
+                  "scale": { "type": "categorical" },
+                  "displayName": "Catégorie"
+                }
+              }
+            }
+          },
+          "position": { "x": 0, "y": 27, "width": 6, "height": 8 }
+        },
+        {
+          "widget": {
+            "name": "table_alertes",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "file_alertes",
+                  "fields": [
+                    { "name": "horodatage", "expression": "`horodatage`" },
+                    { "name": "montant", "expression": "`montant`" },
+                    { "name": "categorie", "expression": "`categorie`" },
+                    { "name": "ecart_habitudes", "expression": "`ecart_habitudes`" },
+                    { "name": "txn_derniere_heure", "expression": "`txn_derniere_heure`" },
+                    { "name": "score", "expression": "`score`" },
+                    { "name": "issue", "expression": "`issue`" }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 1,
+              "widgetType": "table",
+              "frame": {
+                "title": "File d'alertes à traiter",
+                "showTitle": true,
+                "description": "Triée par score décroissant, avec le contexte qui justifie chaque remontée",
+                "showDescription": true
+              },
+              "encodings": {
+                "columns": [
+                  { "fieldName": "horodatage", "displayName": "Horodatage", "type": "datetime" },
+                  { "fieldName": "montant", "displayName": "Montant ($)", "type": "float" },
+                  { "fieldName": "categorie", "displayName": "Catégorie", "type": "string" },
+                  { "fieldName": "ecart_habitudes", "displayName": "Écart aux habitudes (σ)", "type": "float" },
+                  { "fieldName": "txn_derniere_heure", "displayName": "Txn dernière heure", "type": "integer" },
+                  { "fieldName": "score", "displayName": "Score", "type": "float" },
+                  { "fieldName": "issue", "displayName": "Issue réelle", "type": "string" }
+                ]
+              }
+            }
+          },
+          "position": { "x": 0, "y": 35, "width": 6, "height": 10 }
+        }
+      ]
+    }
+  ]
+}
