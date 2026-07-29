@@ -131,7 +131,78 @@ XGBoost traite nativement les valeurs manquantes : à chaque nœud, il apprend l
 
 Documenter les variables écartées vaut autant que documenter celles retenues. Un jury qui a lu la méthodologie annoncer une variable de distance demandera pourquoi elle a disparu : « elle a été testée, mesurée, et écartée sur preuve » est une réponse solide.
 
-## 8. Résultat
+## 8. Résultats mesurés
+
+### 8.1 Les contrôles anti-fuite passent, et la preuve se lit à la main
+
+Les trois contrôles rapportent **0 violation** sur 1 852 394 lignes. Au-delà du contrôle automatique, la propriété se vérifie manuellement sur les premières transactions d'un porteur :
+
+| Transaction | `amount` | `customer_txn_count_hist` | `customer_amount_mean_hist` | Vérification |
+| ---: | ---: | ---: | ---: | --- |
+| 1 | 1,57 | 0 | — | Aucun historique |
+| 2 | 267,29 | 1 | **1,57** | = montant de la transaction 1 |
+| 3 | 229,30 | 2 | **134,43** | (1,57 + 267,29) / 2 |
+| 4 | 73,69 | 3 | **166,05** | (1,57 + 267,29 + 229,30) / 3 |
+
+Le z-score se recalcule de même : sur la transaction 3, l'écart-type de {1,57 ; 267,29} vaut 187,89, d'où (229,30 − 134,43) / 187,89 = **0,5049** — la valeur produite par le pipeline.
+
+Cette vérifiabilité manuelle est le meilleur argument disponible en soutenance : la démonstration ne repose ni sur la confiance accordée au code, ni sur un contrôle automatique qu'il faudrait croire sur parole.
+
+### 8.2 Pouvoir discriminant des variables
+
+Moyenne de chaque variable numérique par classe, sur l'ensemble du corpus.
+
+| Variable | Légitime | Fraude | Rapport |
+| --- | ---: | ---: | ---: |
+| **`amount_zscore_vs_history`** | **0,001** | **3,897** | — *(voir ci-dessous)* |
+| `amount_sum_1h` | 12,93 | 413,15 | × 32,0 |
+| `amount` | 67,65 | 530,66 | × 7,8 |
+| `amount_ratio_vs_mean` | 0,98 | 7,12 | × 7,3 |
+| `amount_sum_24h` | 280,80 | 1 937,15 | × 6,9 |
+| `txn_count_1h` | 0,198 | 0,677 | × 3,4 |
+| `amount_sum_7d` | 1 836,21 | 3 397,89 | × 1,9 |
+| `customer_amount_mean_hist` | 70,06 | 114,10 | × 1,6 |
+| `customer_amount_std_hist` | 134,85 | 159,82 | × 1,2 |
+| `customer_txn_count_hist` | 1 301,37 | 827,53 | × 0,64 |
+| `seconds_since_previous_txn` | 30 990 | 21 127 | × 0,68 |
+| `txn_count_7d` | 26,53 | 19,28 | × 0,73 |
+| `customer_category_share_hist` | 0,082 | 0,090 | × 1,10 |
+| `hour_of_day` | 12,80 | 14,05 | × 1,10 |
+| `customer_age` | 45,75 | 48,32 | × 1,06 |
+| `txn_count_24h` | 4,11 | 4,31 | × 1,05 |
+
+**Le z-score du montant contre l'historique du porteur domine nettement.** Une transaction légitime se situe à **0,001 écart-type** des habitudes de son porteur — ce qui est sa définition même — tandis qu'une fraude se situe à **3,897 écarts-types au-dessus**.
+
+C'est la validation empirique de la démarche : la variable conçue spécifiquement pour répondre à la problématique des faux positifs est aussi la plus discriminante du jeu.
+
+> **Précaution de lecture.** Le rapport des moyennes vaut ici près de 2 900, mais ce chiffre ne doit **pas** être cité : il est mécaniquement gonflé par un dénominateur voisin de zéro. La formulation correcte est l'écart absolu — *0,001 contre 3,897 écarts-types* — qui décrit la même réalité sans exposer à une objection méthodologique.
+
+**La vélocité fonctionne.** `amount_sum_1h` sépare les classes d'un facteur 32 et `txn_count_1h` d'un facteur 3,4, ce qui confirme le scénario de rafale identifié au profilage. Les fenêtres larges sont en revanche peu informatives (`txn_count_24h` à × 1,05) : le signal est bien concentré sur l'heure précédente, exactement comme la cadence mesurée le laissait attendre.
+
+### 8.3 Deux pièges de lecture, et une alerte pour la suite
+
+**Le rapport de moyennes ne convient pas aux variables cycliques.** `hour_of_day` affiche × 1,10, ce qui suggérerait une variable inutile. C'est faux : comparer des moyennes d'heures (12,8 contre 14,0) n'a aucun sens quand 23 h et 1 h sont voisines dans la réalité mais opposées en moyenne. Le profilage a établi un taux de fraude 10 à 30 fois supérieur la nuit ; ce signal existe bien, il est porté par `is_night` et invisible à cet indicateur.
+
+**Deux variables sont potentiellement des indicateurs temporels déguisés.** `customer_txn_count_hist` (× 0,64) et `txn_count_7d` (× 0,73) indiquent que les fraudes touchent des porteurs ayant moins d'historique. Mais ces variables **croissent mécaniquement avec le temps écoulé** depuis le début du corpus, or le taux de fraude y décroît (0,579 % sur la période d'entraînement contre 0,386 % sur celle de test). Elles risquent donc d'encoder « à quelle date on se situe » plutôt qu'un comportement — une information qui ne généraliserait pas au-delà du corpus.
+
+Ce point est à vérifier explicitement dans l'analyse SHAP (note 07) et à reprendre dans le bilan critique.
+
+### 8.4 Valeurs manquantes
+
+| Variable | Manquantes | Taux |
+| --- | ---: | ---: |
+| `seconds_since_previous_txn` | 999 | 0,054 % |
+| `customer_amount_mean_hist` | 999 | 0,054 % |
+| `amount_ratio_vs_mean` | 999 | 0,054 % |
+| `customer_category_share_hist` | 999 | 0,054 % |
+| `customer_amount_std_hist` | 1 998 | 0,108 % |
+| `amount_zscore_vs_history` | 1 998 | 0,108 % |
+
+Les chiffres confirment l'exactitude du partitionnement : **999 valeurs manquantes correspondent exactement à une par porteur** — sa première transaction, qui n'a pas d'antécédent. Les 1 998 des variables dépendant de l'écart-type correspondent aux **deux premières transactions** de chaque porteur, puisqu'il en faut au moins deux pour calculer une variance.
+
+Une valeur différente aurait signalé une erreur de partitionnement, par exemple des fenêtres calculées sur l'ensemble du corpus au lieu de chaque porteur.
+
+## 9. Résultat
 
 | | |
 | --- | --- |
