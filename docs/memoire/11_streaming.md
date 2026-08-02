@@ -95,7 +95,24 @@ La jointure flux/statique n'est possible ici que parce que le côté statique es
 
 Le principe resterait identique ; seul le support du profil changerait.
 
-## 7. Ce qui n'a pas été fait
+## 7. Le déclencheur : `availableNow` plutôt qu'un flux continu
+
+Le compute serverless n'autorise que les déclencheurs `availableNow` et `once`. Un flux continu exigerait un cluster dédié tournant en permanence.
+
+Cette contrainte n'est pas une limitation subie : `availableNow` traite tout ce qui est arrivé depuis le dernier passage, puis s'arrête. C'est le mode dit **batch incrémental**, et c'est celui que retiennent la plupart des pipelines de production.
+
+| | Flux continu | `availableNow` |
+| --- | --- | --- |
+| Latence | Secondes | Celle de la planification |
+| Coût | Cluster allumé en permanence | Uniquement pendant le traitement |
+| Orchestration | Impossible dans un job qui se termine | Naturelle |
+| Reprise | Point de contrôle | Point de contrôle — identique |
+
+**La sémantique incrémentale est la même** : seuls les nouveaux fichiers sont traités, et le point de contrôle garantit qu'aucun ne l'est deux fois. Ce qui change est la fréquence de réveil, pas la logique.
+
+Pour une détection réellement temps réel — bloquer une transaction en quelques centaines de millisecondes — il faudrait un cluster dédié et un déclencheur continu. C'est un arbitrage de coût, non une limite technique : la même chaîne y fonctionnerait sans modification.
+
+## 8. Ce qui n'a pas été fait
 
 **Le scoring n'est pas branché sur le flux.** La chaîne en flux s'arrête aux variables enrichies. Appliquer le modèle nécessiterait une fonction Python vectorisée chargeant le pipeline scikit-learn sur chaque exécuteur — techniquement accessible, mais qui n'aurait rien démontré de plus sur la vélocité.
 
@@ -103,7 +120,7 @@ Le principe resterait identique ; seul le support du profil changerait.
 
 Ces deux limites sont énoncées plutôt que masquées. Un jury distingue sans peine une limite assumée d'un oubli.
 
-## 8. Le piège pratique du streaming
+## 9. Le piège pratique du streaming
 
 Un détail mérite d'être mentionné, car il coûte du temps à tout le monde une fois.
 

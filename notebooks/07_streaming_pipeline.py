@@ -45,10 +45,35 @@ from pyspark.sql import functions as F
 
 from fraud import config, quality, schemas, silver
 
-dbutils.widgets.text("stream_seconds", "180", "Durée d'écoute du flux (s)")
-STREAM_SECONDS = int(dbutils.widgets.get("stream_seconds"))
-
 print(config.describe())
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ### Le choix du déclencheur : `availableNow`
+# MAGIC
+# MAGIC Le compute serverless n'autorise que les déclencheurs **`availableNow`** et
+# MAGIC `once` : un flux continu exigerait un cluster dédié tournant en permanence.
+# MAGIC
+# MAGIC Cette contrainte n'est pas une limitation subie. `availableNow` traite tout
+# MAGIC ce qui est arrivé depuis le dernier passage, puis **s'arrête** — c'est le
+# MAGIC mode dit *batch incrémental*, et c'est celui que retiennent la plupart des
+# MAGIC pipelines de production :
+# MAGIC
+# MAGIC | | Flux continu | `availableNow` |
+# MAGIC |---|---|---|
+# MAGIC | Latence | Secondes | Celle de la planification |
+# MAGIC | Coût | Cluster allumé en permanence | Uniquement pendant le traitement |
+# MAGIC | Orchestration | Impossible dans un job qui se termine | Naturelle |
+# MAGIC | Reprise | Point de contrôle | Point de contrôle — identique |
+# MAGIC
+# MAGIC La sémantique incrémentale est **la même** : seuls les nouveaux fichiers
+# MAGIC sont traités, et le point de contrôle garantit qu'aucun ne l'est deux fois.
+# MAGIC Ce qui change est la fréquence de réveil, pas la logique.
+# MAGIC
+# MAGIC Pour une détection de fraude réellement temps réel — bloquer une transaction
+# MAGIC en quelques centaines de millisecondes — il faudrait un cluster dédié et un
+# MAGIC déclencheur continu. C'est un choix de coût, non de technique.
 
 # COMMAND ----------
 
@@ -133,14 +158,20 @@ bronze_query = (
     bronze_stream.writeStream.format("delta")
     .outputMode("append")
     .option("checkpointLocation", f"{config.CHECKPOINT_PATH}/bronze")
-    # Un micro-lot toutes les 10 secondes. En production on ajusterait selon la
-    # latence acceptable : plus l'intervalle est court, plus la latence est
-    # faible et plus le surcoût de coordination est élevé.
-    .trigger(processingTime="10 seconds")
+    .trigger(availableNow=True)
     .toTable(config.BRONZE_STREAM_TABLE)
 )
 
-print(f"Flux Bronze démarré — écriture vers {config.BRONZE_STREAM_TABLE}")
+# `awaitTermination` bloque jusqu'à ce que tous les fichiers disponibles soient
+# traités. La couche Silver lit la table Bronze : elle ne peut démarrer qu'une
+# fois celle-ci alimentée.
+bronze_query.awaitTermination()
+
+progress = bronze_query.lastProgress
+print(f"Flux Bronze terminé — écriture vers {config.BRONZE_STREAM_TABLE}")
+if progress:
+    print(f"  Micro-lots traités : {progress['batchId'] + 1}")
+    print(f"  Lignes ingérées    : {spark.table(config.BRONZE_STREAM_TABLE).count():,}".replace(",", " "))
 
 # COMMAND ----------
 
@@ -202,42 +233,47 @@ silver_query = (
     silver_stream.writeStream.format("delta")
     .outputMode("append")
     .option("checkpointLocation", f"{config.CHECKPOINT_PATH}/silver")
-    .trigger(processingTime="15 seconds")
+    .trigger(availableNow=True)
     .toTable(config.SILVER_STREAM_TABLE)
 )
+silver_query.awaitTermination()
 
-print(f"Flux Silver démarré — écriture vers {config.SILVER_STREAM_TABLE}")
+print(f"Flux Silver terminé — écriture vers {config.SILVER_STREAM_TABLE}")
 print(f"Règles appliquées : {len(streaming_rules)} sur {len(silver.reject_rules())}")
 print("  (la règle de doublon est remplacée par dropDuplicatesWithinWatermark)")
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## 3. Écoute du flux
+# MAGIC ## 3. Bilan de l'exécution incrémentale
 # MAGIC
-# MAGIC Les deux flux tournent en tâche de fond. On les laisse consommer les
-# MAGIC fichiers déposés par le notebook `06_streaming_replay`, puis on les arrête
-# MAGIC proprement.
+# MAGIC Les deux flux ont traité tout ce qui était disponible, puis se sont
+# MAGIC arrêtés. Leur **point de contrôle** conserve la liste des fichiers déjà
+# MAGIC ingérés : une seconde exécution ne retraiterait que les nouveaux dépôts.
 # MAGIC
-# MAGIC > **Un flux ne s'arrête pas tout seul.** En production il tournerait
-# MAGIC > indéfiniment sur un job dédié. Ici, une durée d'écoute bornée évite de
-# MAGIC > consommer inutilement le quota de calcul.
+# MAGIC C'est cette propriété qui distingue un traitement incrémental d'un
+# MAGIC rechargement complet, et c'est elle qui permet d'orchestrer le flux comme
+# MAGIC une tâche planifiée plutôt que comme un processus permanent.
 
 # COMMAND ----------
 
-import time
+for label, query in [("Bronze", bronze_query), ("Silver", silver_query)]:
+    progress = query.lastProgress
+    if not progress:
+        print(f"{label:<8} aucun micro-lot — rien de nouveau à traiter")
+        continue
+    print(f"{label:<8} micro-lots : {progress['batchId'] + 1:<4} "
+          f"lignes du dernier lot : {progress['numInputRows']:<8} "
+          f"état actif : {query.isActive}")
 
-start = time.time()
-while time.time() - start < STREAM_SECONDS:
-    bronze_rows = bronze_query.lastProgress["numInputRows"] if bronze_query.lastProgress else 0
-    silver_rows = silver_query.lastProgress["numInputRows"] if silver_query.lastProgress else 0
-    elapsed = int(time.time() - start)
-    print(f"  [{elapsed:>3}s] Bronze +{bronze_rows}  Silver +{silver_rows}", flush=True)
-    time.sleep(15)
-
-for name, query in [("Bronze", bronze_query), ("Silver", silver_query)]:
-    query.stop()
-    print(f"Flux {name} arrêté.")
+print()
+checkpoints = [f.name.rstrip("/") for f in dbutils.fs.ls(config.CHECKPOINT_PATH)]
+print(f"Points de reprise conservés : {', '.join(sorted(checkpoints))}")
+print()
+print("Relancer ce notebook maintenant ne retraiterait aucun fichier : les")
+print("points de reprise les ont tous enregistrés comme déjà ingérés. C'est le")
+print("comportement recherché — et c'est aussi pourquoi une remise à zéro de la")
+print("démonstration exige de les vider (cf. notebook 06).")
 
 # COMMAND ----------
 
