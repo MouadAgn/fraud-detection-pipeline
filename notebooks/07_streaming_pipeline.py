@@ -49,7 +49,40 @@ dbutils.widgets.text("stream_seconds", "180", "Durée d'écoute du flux (s)")
 STREAM_SECONDS = int(dbutils.widgets.get("stream_seconds"))
 
 print(config.describe())
-print(f"\nAtterrissage : {config.LANDING_PATH}")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ### Emplacements de flux
+# MAGIC
+# MAGIC Les volumes sont créés ici comme dans le notebook de rejeu, et pour la même
+# MAGIC raison qu'à l'étape 1 : un traitement doit pouvoir s'exécuter sur un
+# MAGIC environnement vierge, sans supposer qu'un autre notebook a été lancé avant
+# MAGIC lui. La création étant idempotente, la redondance ne coûte rien.
+
+# COMMAND ----------
+
+for volume, purpose in [
+    (config.LANDING_VOLUME, "Fichiers de transactions déposés au fil de l'eau"),
+    (config.CHECKPOINT_VOLUME, "Points de reprise des traitements en flux"),
+]:
+    spark.sql(f"""
+        CREATE VOLUME IF NOT EXISTS {config.CATALOG}.{config.SCHEMA}.{volume}
+        COMMENT '{purpose}'
+    """)
+
+print(f"Atterrissage      : {config.LANDING_PATH}")
+print(f"Points de reprise : {config.CHECKPOINT_PATH}")
+
+pending = [f for f in dbutils.fs.ls(config.LANDING_PATH) if f.name.endswith(".csv")]
+print(f"\nFichiers en attente : {len(pending)}")
+
+if not pending:
+    print()
+    print("Aucun fichier à traiter. Deux façons de procéder :")
+    print("  - lancer 06_streaming_replay en parallèle, dans un autre onglet,")
+    print("    pour voir les fichiers consommés au fur et à mesure de leur dépôt ;")
+    print("  - ou l'exécuter d'abord en entier, puis revenir ici.")
 
 # COMMAND ----------
 
