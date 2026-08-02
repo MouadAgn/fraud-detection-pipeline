@@ -130,7 +130,16 @@ def to_pandas(df: DataFrame) -> pd.DataFrame:
     pdf["hour_sin"] = np.sin(angle).astype("float32")
     pdf["hour_cos"] = np.cos(angle).astype("float32")
 
-    return pdf
+    # Ordre déterministe. Spark ne garantit aucun ordre de restitution : il
+    # dépend de la disposition physique des fichiers, qui change à chaque
+    # réécriture de la table. Sans tri explicite, deux exécutions identiques
+    # produisent le même tableau dans un ordre différent.
+    #
+    # C'est sans conséquence sur l'entraînement, mais pas sur le choix du
+    # seuil : au voisinage du minimum, la courbe de coût est si plate que
+    # l'ordre des ex æquo suffit à déplacer l'optimum d'un point à l'autre.
+    # Les métriques finales changeaient alors sans qu'aucune donnée n'ait bougé.
+    return pdf.sort_values("transaction_id", kind="stable", ignore_index=True)
 
 
 @dataclass(frozen=True)

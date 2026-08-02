@@ -232,6 +232,58 @@ def test_costlier_false_alerts_raise_the_optimal_threshold(scored_sample):
     assert alert_counts == sorted(alert_counts, reverse=True)
 
 
+def test_optimal_threshold_is_stable_under_row_reordering(scored_sample):
+    """Le seuil retenu ne doit pas dépendre de l'ordre des lignes en entrée.
+
+    Spark ne garantit aucun ordre de restitution, et il change à chaque
+    réécriture d'une table. Si le seuil en dépendait, les métriques finales du
+    mémoire varieraient d'une exécution à l'autre sans qu'aucune donnée n'ait
+    bougé — ce qui s'est effectivement produit avant ce correctif.
+    """
+    y, scores = scored_sample
+    rng = np.random.default_rng(1)
+    amounts = pd.Series(rng.gamma(2, 100, len(y)))
+
+    reference = optimal_threshold_by_cost(cost_curve(y, scores, amounts, 5.0))
+
+    shuffle = rng.permutation(len(y))
+    shuffled = optimal_threshold_by_cost(
+        cost_curve(
+            y.iloc[shuffle].reset_index(drop=True),
+            scores[shuffle],
+            amounts.iloc[shuffle].reset_index(drop=True),
+            5.0,
+        )
+    )
+
+    assert shuffled["threshold"] == pytest.approx(reference["threshold"])
+    assert shuffled["false_positives"] == reference["false_positives"]
+    assert shuffled["true_positives"] == reference["true_positives"]
+
+
+def test_optimal_threshold_prefers_the_most_selective_among_equals():
+    """À coût égal, le seuil le plus sélectif est retenu.
+
+    Il émet moins d'alertes, donc dérange moins de clients honnêtes et charge
+    moins les analystes. C'est le choix que ferait le métier.
+    """
+    # Deux fraudes bien séparées, et des légitimes très en dessous : plusieurs
+    # seuils intermédiaires attrapent les deux fraudes sans fausse alerte, donc
+    # à coût strictement identique.
+    y = pd.Series([1, 1] + [0] * 98)
+    scores = np.array([0.90, 0.80] + [0.10] * 98)
+    amounts = pd.Series([500.0, 500.0] + [50.0] * 98)
+
+    curve = cost_curve(y, scores, amounts, false_alert_cost=5.0)
+    optimum = optimal_threshold_by_cost(curve)
+
+    # Le coût minimal est nul : les deux fraudes sont attrapées, aucune fausse
+    # alerte. Le seuil retenu doit être le plus haut qui l'atteigne.
+    assert optimum["total_cost"] == pytest.approx(0.0)
+    assert optimum["threshold"] == pytest.approx(0.80)
+    assert optimum["false_positives"] == 0
+
+
 def test_optimal_cost_never_exceeds_the_no_model_baseline(scored_sample):
     """Le seuil optimal ne peut pas coûter plus cher que de ne rien faire.
 

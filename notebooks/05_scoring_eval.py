@@ -278,9 +278,14 @@ for label, threshold in candidates.items():
 # COMMAND ----------
 
 DECISION_THRESHOLD = float(optimum["threshold"])
-print(f"Seuil de décision retenu : {DECISION_THRESHOLD:.6f}")
+print(f"Seuil de décision retenu : {DECISION_THRESHOLD:.8f}")
 print(f"  choisi sur le bloc de validation, par minimisation du coût métier")
 print(f"  hypothèse : une fausse alerte coûte {config.FALSE_ALERT_COST:.2f} $")
+print()
+print("Ce seuil est reproductible d'une exécution à l'autre : les lignes sont")
+print("triées de façon déterministe avant scoring, et lorsque plusieurs seuils")
+print("donnent un coût équivalent, le plus sélectif est retenu — celui qui")
+print("dérange le moins de clients honnêtes à coût métier égal.")
 
 # COMMAND ----------
 

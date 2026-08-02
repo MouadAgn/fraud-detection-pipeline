@@ -152,7 +152,10 @@ def cost_curve(
     scores = np.asarray(y_score)
     values = np.asarray(amounts, dtype=float)
 
-    order = np.argsort(-scores)  # du plus suspect au moins suspect
+    # Tri stable : à scores égaux, l'ordre d'entrée est préservé. Un tri
+    # instable réordonnerait arbitrairement les ex æquo, et la courbe
+    # changerait d'une exécution à l'autre sans qu'aucune donnée n'ait bougé.
+    order = np.argsort(-scores, kind="stable")  # du plus suspect au moins suspect
     y, scores, values = y[order], scores[order], values[order]
 
     # Alerter sur les k transactions les mieux classées revient à fixer le
@@ -204,9 +207,28 @@ def cost_curve(
     return curve[is_applicable].reset_index(drop=True)
 
 
-def optimal_threshold_by_cost(curve: pd.DataFrame) -> pd.Series:
-    """Point de la courbe minimisant le coût métier total."""
-    return curve.loc[curve["total_cost"].idxmin()]
+def optimal_threshold_by_cost(curve: pd.DataFrame, tolerance: float = 1e-9) -> pd.Series:
+    """Point de la courbe minimisant le coût métier total.
+
+    **Pourquoi une tolérance et un départage explicite.** Au voisinage du
+    minimum, la courbe de coût est très plate : plusieurs seuils voisins
+    produisent un coût pratiquement identique. Retenir mécaniquement le premier
+    minimum rencontré rendrait le résultat dépendant de variations numériques
+    infimes — l'ordre dans lequel les lignes ont été lues, par exemple — et le
+    seuil retenu changerait d'une exécution à l'autre sans qu'aucune donnée
+    n'ait bougé.
+
+    Deux seuils sont donc considérés comme équivalents lorsque leurs coûts
+    diffèrent de moins de ``tolerance`` fois le coût minimal. Parmi eux, on
+    retient le **plus sélectif**.
+
+    Ce départage n'est pas arbitraire : à coût métier égal, le seuil le plus
+    élevé émet moins d'alertes, donc dérange moins de clients honnêtes et
+    charge moins les analystes. C'est le choix que ferait le métier.
+    """
+    minimum = curve["total_cost"].min()
+    equivalent = curve[curve["total_cost"] <= minimum * (1 + tolerance) + tolerance]
+    return equivalent.loc[equivalent["threshold"].idxmax()]
 
 
 def format_comparison(results: list[dict]) -> str:
