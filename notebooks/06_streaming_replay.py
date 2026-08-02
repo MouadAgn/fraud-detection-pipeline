@@ -66,12 +66,16 @@ for volume, purpose in [
     (config.LANDING_VOLUME, "Fichiers de transactions déposés au fil de l'eau"),
     (config.CHECKPOINT_VOLUME, "Points de reprise des traitements en flux"),
 ]:
+    # Les apostrophes doivent être doublées pour être échappées en SQL : sans
+    # cela, « au fil de l'eau » referme la chaîne après « l » et le reste
+    # devient une instruction invalide. Le français en contient beaucoup.
+    comment = purpose.replace("'", "''")
     spark.sql(f"""
         CREATE VOLUME IF NOT EXISTS {config.CATALOG}.{config.SCHEMA}.{volume}
-        COMMENT '{purpose}'
+        COMMENT '{comment}'
     """)
 
-print(f"Atterrissage    : {config.LANDING_PATH}")
+print(f"Atterrissage      : {config.LANDING_PATH}")
 print(f"Points de reprise : {config.CHECKPOINT_PATH}")
 
 # COMMAND ----------

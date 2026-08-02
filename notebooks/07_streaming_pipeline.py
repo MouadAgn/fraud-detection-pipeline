@@ -66,9 +66,11 @@ for volume, purpose in [
     (config.LANDING_VOLUME, "Fichiers de transactions déposés au fil de l'eau"),
     (config.CHECKPOINT_VOLUME, "Points de reprise des traitements en flux"),
 ]:
+    # Apostrophes doublées pour l'échappement SQL — cf. notebook 06.
+    comment = purpose.replace("'", "''")
     spark.sql(f"""
         CREATE VOLUME IF NOT EXISTS {config.CATALOG}.{config.SCHEMA}.{volume}
-        COMMENT '{purpose}'
+        COMMENT '{comment}'
     """)
 
 print(f"Atterrissage      : {config.LANDING_PATH}")
