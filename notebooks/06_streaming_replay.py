@@ -140,17 +140,33 @@ if RESET:
 
 # COMMAND ----------
 
+# Le découpage en lots est matérialisé dans une table intermédiaire plutôt que
+# mis en cache mémoire : `.cache()` n'est pas supporté sur le compute serverless.
+#
+# Ce n'est pas un simple contournement. Sans matérialisation, le plan complet —
+# lecture de 1,85 M de lignes, tri, limite, découpage — serait réexécuté à
+# chaque écriture de fichier, soit dix fois. La table intermédiaire ne pèse que
+# quelques milliers de lignes et rend les dépôts instantanés.
+#
+# L'avertissement « No Partition Defined for Window operation » est attendu :
+# `ntile` numérote les lots sur l'ensemble trié, ce qui suppose effectivement
+# une partition unique. Sur 20 000 lignes, c'est sans conséquence.
+STAGING_TABLE = config.fqn("tmp_streaming_replay")
 chronological = Window.orderBy(F.col("trans_date_trans_time").asc())
 
-batches = (
+(
     spark.table(config.BRONZE_TABLE)
     .select(*schemas.SOURCE_COLUMN_ORDER)
     .orderBy(F.col("trans_date_trans_time").desc())
     .limit(REPLAY_ROWS)
     .withColumn("_batch", F.ntile(BATCHES).over(chronological))
-    .cache()
+    .write.format("delta")
+    .mode("overwrite")
+    .option("overwriteSchema", "true")
+    .saveAsTable(STAGING_TABLE)
 )
 
+batches = spark.table(STAGING_TABLE)
 total = batches.count()
 print(f"{total:,} transactions préparées en {BATCHES} lots "
       f"(~{total // BATCHES:,} par lot)".replace(",", " "))
@@ -198,6 +214,11 @@ for index in range(1, BATCHES + 1):
 files = [f for f in dbutils.fs.ls(config.LANDING_PATH) if f.name.endswith(".csv")]
 print()
 print(f"Dépôt terminé : {len(files)} fichiers dans l'atterrissage.")
+
+# La table intermédiaire n'a plus d'utilité : la laisser encombrerait le schéma
+# et laisserait croire qu'elle fait partie du modèle de données.
+spark.sql(f"DROP TABLE IF EXISTS {STAGING_TABLE}")
+print(f"Table intermédiaire supprimée : {STAGING_TABLE}")
 
 # COMMAND ----------
 
