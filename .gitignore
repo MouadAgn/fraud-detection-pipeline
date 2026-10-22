@@ -48,3 +48,14 @@ Thumbs.db
 # Document source du projet (fiche de cadrage, non versionné)
 # ---------------------------------------------------------------------------
 Fiche_Projet_Detection_Fraude_DataEngineering.md.pdf
+
+# Terraform : état, plans et cache restent locaux ; conserver le lock fournisseur.
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfplan.*
+crash.log
+crash.*.log
+*.local.tfvars
+*.local.tfvars.json

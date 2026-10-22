@@ -1,0 +1,2 @@
+environment = "preprod"
+location    = "francecentral"
