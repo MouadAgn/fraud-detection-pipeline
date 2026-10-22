@@ -1,0 +1,14 @@
+# Liste d'autorisation : seuls les fichiers utiles sont envoyés à Docker.
+**
+!Dockerfile
+!.dockerignore
+!requirements-api.txt
+!src/
+!src/fraud_api/
+!src/fraud_api/**
+!data/
+!data/api_bundle/
+!data/api_bundle/**
+**/__pycache__/
+**/*.pyc
+**/.DS_Store

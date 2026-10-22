@@ -150,3 +150,10 @@ Le pipeline lui-même s'exécute sur un workspace [Databricks Free Edition](http
 ---
 
 **Auteur** — Mouad AOUGHANE · Mémoire MIA26
+
+## API de prédiction locale
+
+Une API FastAPI permet de demander le score d'une transaction par son
+identifiant à partir d'un export du modèle et de données Gold. Elle ne relance
+pas le pipeline Databricks. Voir **[le guide API](docs/api.md)** pour le démarrage,
+l'export du vrai modèle et les tests. Aucun déploiement Azure à cette étape.

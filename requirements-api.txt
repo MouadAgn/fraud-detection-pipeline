@@ -1,0 +1,7 @@
+# Serveur HTTP local. Compléter avec les versions exactes de l'export MLflow.
+fastapi>=0.115,<1
+uvicorn>=0.30,<1
+pydantic>=2.9,<3
+pandas>=2,<4
+numpy>=1.26,<3
+mlflow-skinny>=2.20,<4
