@@ -9,6 +9,7 @@ Le registre ne sera pas automatiquement rempli : le push de l'image viendra apr�
 
 ## Comprendre les fichiers
 
+- `backend.tf` : emplacement de l’état préprod dans Azure Blob Storage.
 - `versions.tf` : versions Terraform et fournisseur AzureRM acceptées.
 - `providers.tf` : connexion à Azure avec la session Azure CLI existante.
 - `variables.tf` : abonnement, région et environnement à renseigner.
@@ -28,11 +29,11 @@ Depuis la racine du projet, après `az login` :
 ```bash
 cd infra/terraform
 export TF_VAR_subscription_id="$(az account show --query id -o tsv)"
-terraform init
+terraform init -reconfigure
 terraform fmt -check -recursive
 terraform validate
 terraform plan -var-file=environments/preprod.tfvars \
-  -state=preprod.tfstate -out=preprod.tfplan
+  -out=preprod.tfplan
 ```
 
 `plan` lit Azure et prépare un plan local. Aucun `apply` n'est lancé. Le résultat
@@ -66,7 +67,7 @@ est décidée :
 
 ```bash
 terraform apply preprod.tfplan
-terraform output -state=preprod.tfstate
+terraform output
 ```
 
 Un plan sauvegardé est appliqué tel quel : `apply preprod.tfplan` ne redemande
@@ -75,21 +76,34 @@ Si des paramètres changent, régénérer et relire le plan.
 
 ## État Terraform et environnements
 
-Pour ce premier exercice local, l'état préprod se trouve dans `preprod.tfstate`.
-L'état relie les ressources Azure à leur déclaration dans les fichiers. Il est
-exclu de Git, comme le plan et le dossier `.terraform`. Le conserver et ne pas
-le partager : un état peut contenir des informations sensibles.
+Le backend Azure conserve l'état dans :
 
-Le fichier `prod.tfvars` prépare les paramètres de prod, mais ne crée aucun
-second environnement. Une future exécution locale prod doit impérativement
-utiliser **un état différent**, avec `-state=prod.tfstate` et `-out=prod.tfplan`.
-Ne jamais changer simplement environment dans un état déjà utilisé : Terraform
-pourrait remplacer les ressources de l'autre environnement.
+- Storage Account : `stfraudtfmouad221026`
+- Conteneur Blob : `tfstate`
+- Fichier (clé du blob) : `preprod.tfstate`
 
-**Avant d'exécuter Terraform dans GitHub Actions**, nous créerons un Storage
-Account dédié à l'état et migrerons les états dans des blobs distincts pour
-préprod/prod. Cela permettra de partager et verrouiller l'état entre exécutions.
-On configurera ensuite l'identité GitHub/Azure sans mot de passe utilisateur.
+Ce stockage a été créé séparément via Azure CLI dans `rg-fraud-tfstate`.
+`use_azuread_auth = true` utilise l'identité Azure, sans clé partagée. Ton compte
+possède le rôle Storage Blob Data Contributor sur ce stockage.
+Le backend Azure permet de partager et verrouiller l'état entre exécutions.
+L'état n'est pas un fichier de configuration : il ne doit pas être ajouté à Git.
+
+`terraform init -reconfigure` connecte ce dossier au backend distant. Cette
+commande ne crée pas ACR. Elle convient ici parce qu'aucun état de ressources
+locales n'a encore été créé. Si un état local contenant des ressources existe,
+le sauvegarder et utiliser une migration contrôlée avec `init -migrate-state`
+plutôt que de l'ignorer avec `-reconfigure`.
+
+Le nom `preprod.tfstate` est réservé à la préproduction. Ne pas utiliser
+`prod.tfvars` avec cette même clé : cela pourrait modifier les ressources de
+préprod. La configuration prod utilisera une clé distincte `prod.tfstate` ;
+le fichier de variables seul ne sépare pas les états.
+
+Pour GitHub Actions, la connexion OIDC et les permissions de son identité
+restent à configurer. Avoir le backend distant ne connecte pas automatiquement
+GitHub à Azure. Les commandes plan/apply ci-dessus documentent Terraform ;
+le prochain déploiement sera organisé dans le workflow après configuration
+de cette identité et validation du plan.
 
 ## Références
 
