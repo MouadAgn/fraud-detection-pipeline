@@ -101,11 +101,11 @@ Le nom `preprod.tfstate` est réservé à la préproduction. Ne pas utiliser
 préprod. La configuration prod utilisera une clé distincte `prod.tfstate` ;
 le fichier de variables seul ne sépare pas les états.
 
-Pour GitHub Actions, la connexion OIDC et les permissions de son identité
-restent à configurer. Avoir le backend distant ne connecte pas automatiquement
-GitHub à Azure. Les commandes plan/apply ci-dessus documentent Terraform ;
-le prochain déploiement sera organisé dans le workflow après configuration
-de cette identité et validation du plan.
+Pour GitHub Actions, OIDC et les permissions préprod sont configurés.
+Le workflow `.github/workflows/terraform-preprod.yml` propose un plan seul
+par défaut. Pour créer les ressources, lancer manuellement depuis `main`
+avec la case de création cochée : le job prépare puis applique son plan
+sauvegardé. Voir `docs/github-oidc.md` pour la procédure détaillée.
 
 ## Références
 

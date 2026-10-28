@@ -1,8 +1,14 @@
-name: "Préprod - Terraform plan"
+name: "Préprod - Terraform plan ou apply"
 
-# Déclenchement manuel uniquement : connexion, validation et plan, sans apply.
+# Plan par défaut ; apply uniquement sur demande explicite au lancement.
 on:
   workflow_dispatch:
+    inputs:
+      apply:
+        description: "Créer ou mettre à jour les ressources préprod (ACR Basic facturable)"
+        type: boolean
+        required: true
+        default: false
 
 permissions:
   contents: read
@@ -110,10 +116,22 @@ jobs:
           terraform show -no-color preprod.tfplan > preprod-plan.txt
           {
             echo '### Plan Terraform de préproduction'
-            echo 'Plan préparé uniquement : aucun apply exécuté.'
-            echo 'Le groupe existant est proposé à l’import ; ACR reste à créer.'
+            echo 'Plan préparé ; apply exécuté ensuite uniquement si sélectionné au lancement.'
             echo 'Consulter les logs de cette étape pour le plan complet.'
             echo '```text'
             tail -n 25 preprod-plan.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Appliquer le plan de préproduction
+        if: ${{ inputs.apply == true }}
+        run: |
+          set -euo pipefail
+          terraform apply -input=false -lock-timeout=120s -no-color preprod.tfplan
+          {
+            echo '### Déploiement de préproduction terminé'
+            echo 'Le plan sauvegardé dans cette exécution a été appliqué.'
+            echo '```text'
+            terraform output -no-color
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"

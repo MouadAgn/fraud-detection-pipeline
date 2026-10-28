@@ -1,83 +1,48 @@
-# Première étape GitHub Actions : tester OIDC
+# GitHub Actions : Terraform préprod avec OIDC
 
 Fichier : `.github/workflows/terraform-preprod.yml`.
 
-Ce workflow teste uniquement la connexion à Azure. Il ne construit pas
-l'image Docker et n'exécute ni terraform init, ni plan, ni apply.
-La réussite confirme l'authentification, pas toutes les permissions sur les
-ressources : l'accès au backend et la gestion d'ACR seront testés ensuite.
+## Prérequis configurés
 
-## Prérequis déjà préparés
+- Environnement GitHub `preprod` avec les variables `AZURE_CLIENT_ID`,
+  `AZURE_TENANT_ID` et `AZURE_SUBSCRIPTION_ID` (identifiants, sans client secret).
+- Application Entra, principal de service et confiance fédérée GitHub.
+- Rôle Contributor sur `rg-fraud-preprod` et Storage Blob Data Contributor
+  sur le conteneur `tfstate` pour ce principal.
+- Fournisseur Microsoft.ContainerRegistry enregistré dans l'abonnement.
 
-- Environnement GitHub `preprod` sur ce dépôt.
-- Variables de cet environnement : `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`,
-  `AZURE_SUBSCRIPTION_ID`. Aucun client secret nécessaire.
-- Application Entra et principal de service dédiés à GitHub.
-- Confiance fédérée avec issuer GitHub Actions, audience
-  `api://AzureADTokenExchange` et subject
-  `repo:MouadAgn/fraud-detection-pipeline:environment:preprod`.
+`id-token: write` permet au job de demander une preuve d'identité GitHub.
+Azure vérifie la confiance fédérée, puis accorde une session temporaire.
+Les rôles Azure déterminent ensuite les opérations autorisées.
 
-## Comprendre le fichier
+## Workflow actuel : plan ou apply
 
-- `workflow_dispatch` : lancement manuel depuis GitHub Actions.
-- `if` : seul un lancement depuis `main` exécute le job.
-- `runs-on` : GitHub fournit une machine Linux temporaire.
-- `environment: preprod` : rend disponibles les variables de cet environnement
-  et donne le subject OIDC attendu par Azure.
-- `id-token: write` : autorise la demande du jeton d'identité GitHub ; cela
-  n'accorde pas de permissions supplémentaires sur les ressources Azure.
-- `vars.*` : identifiants configurés par le propriétaire dans GitHub,
-  jamais lus depuis le contenu d'une issue ou d'une pull request.
-- `azure/login` : échange la preuve GitHub contre une session Azure temporaire.
-- Dernière étape : vérifie l'abonnement, le tenant et l'identité du service,
-  puis affiche le nom de l'abonnement et un résumé.
+Le fichier s'appelle désormais **Préprod - Terraform plan ou apply**.
+Il reste manuel, limité à `main`, avec l'identité OIDC de `preprod`.
+Il récupère le code, installe Terraform 1.17.0, vérifie le format, initialise
+le backend Azure, valide et sauvegarde un nouveau plan dans `preprod.tfplan`.
+Les variables ARM utilisent OIDC pour le backend et le fournisseur AzureRM.
+Les exécutions préprod sont sérialisées.
 
-Aucun checkout n'est nécessaire : cette étape ne lit pas les fichiers du dépôt.
-L'action azure/login effectue aussi son nettoyage de session en fin de job.
+1. Ouvrir **Actions → Préprod - Terraform plan ou apply → Run workflow**.
+2. Choisir **main**.
+3. Laisser la case de création décochée pour un **plan seul** (valeur par défaut).
+4. Cocher la case pour demander **plan puis apply** et créer les ressources.
 
-## Lancer soi-même
+La case autorise l'application du nouveau plan calculé dans cette exécution,
+qui peut différer d'un plan précédent si le code ou Azure a changé. Il n'y a
+pas de pause d'approbation supplémentaire entre plan et apply. Pour commencer,
+relire le plan seul, puis lancer sur le même code avec la case cochée.
+L'étape apply utilise exactement le fichier sauvegardé par l'étape plan du
+même job ; elle ne recalcule pas le plan. Un échec d'une étape précédente
+empêche l'application. Aucun lancement n'est automatique sur un push.
 
-1. Dépôt GitHub → **Actions**.
-2. Ouvrir **Préprod - Tester la connexion Azure OIDC**.
-3. **Run workflow** → branche **main** → **Run workflow**.
-4. Ouvrir l'exécution puis le job **Vérifier la connexion à Azure**.
-5. Vérifier les étapes vertes et le message de confirmation.
-
-Si le job est ignoré, vérifier la branche choisie. Si la connexion échoue,
-lire l'étape rouge : les noms de variables, issuer, subject et audience
-OIDC doivent correspondre exactement. Ne pas partager de jetons d'accès.
-
-La prochaine étape ajoutera Terraform et traitera l'import du groupe
-`rg-fraud-preprod`, déjà créé manuellement, avant tout apply.
-
-## Étape suivante : Terraform plan (sans création)
-
-Le même fichier de workflow s'appelle désormais **Préprod - Terraform plan**.
-Il reste manuel et limité à `main` et à l'environnement `preprod`.
-
-Après le test de connexion, il récupère le code, installe Terraform 1.17.0,
-vérifie le format, initialise le backend distant, valide et prépare un plan.
-Les variables ARM indiquent au backend et au fournisseur AzureRM d'utiliser
-OIDC ; la session Azure CLI sert au test d'identité, pas de clé partagée.
-Les exécutions préprod sont sérialisées pour éviter les opérations concurrentes.
-
-`infra/terraform/imports.tf` déclare l'import du groupe `rg-fraud-preprod`
-créé manuellement. Ce bloc ne recrée pas le groupe. Le plan décrit l'import,
-mais son enregistrement définitif dans l'état ne se fera qu'au futur apply.
-Le plan peut aussi proposer de mettre à jour les tags du groupe pour qu'ils
-correspondent au code, et de créer un registre ACR Basic.
-
-Le backend peut écrire un état initial vide et prend un verrou durant le plan ;
-cela ne crée pas ACR et ne modifie pas les ressources prévues par le plan.
-Aucun `terraform apply` ou `terraform import` CLI n'est exécuté dans ce workflow.
-Le plan binaire et sa version texte restent sur la machine temporaire GitHub ;
-ils ne sont pas publiés comme artefacts. Le futur apply nécessitera un nouveau
-plan revu ou une chaîne distincte avec conservation contrôlée du plan validé.
-
-Pour exécuter : **Actions → Préprod - Terraform plan → Run workflow → main**.
-Lire l'étape **Préparer le plan de préproduction sans appliquer** et son résumé.
-Le premier résultat attendu est 1 groupe à importer, 1 ACR à créer et, selon
-les tags existants, une modification du groupe. Aucune suppression attendue.
+`infra/terraform/imports.tf` reconnaît le groupe `rg-fraud-preprod` existant.
+Le premier apply enregistre son import dans l'état, ajoute les tags et crée
+ACR Basic. Il ne déploie pas ACI et ne pousse pas encore l'image Docker.
+ACR est facturable. Les noms et l'adresse du registre sont affichés dans
+le résumé après apply. L'état est enregistré dans le blob `preprod.tfstate`.
+Les plans restent sur la machine temporaire GitHub, sans publication d'artefact.
 
 ### Subject OIDC réellement observé
 
