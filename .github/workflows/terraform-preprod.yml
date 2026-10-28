@@ -1,0 +1,65 @@
+name: "Préprod - Tester la connexion Azure OIDC"
+
+# Déclenchement manuel uniquement, sans plan ni déploiement Terraform.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-azure-login:
+    name: Vérifier la connexion à Azure
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Ce nom doit correspondre au subject de la confiance OIDC dans Entra.
+    environment: preprod
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+    steps:
+      - name: Vérifier les trois variables de preprod
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in AZURE_CLIENT_ID AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID; do
+            value="${!name}"
+            if [[ ! "$value" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]]; then
+              echo "::error::La variable $name est absente ou n'est pas un UUID valide dans preprod."
+              exit 1
+            fi
+          done
+
+      - name: Se connecter à Azure sans mot de passe
+        uses: azure/login@v3.1.0
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Confirmer l'abonnement et l'identité utilisés
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual_subscription=$(az account show --query id -o tsv)
+          actual_tenant=$(az account show --query tenantId -o tsv)
+          actual_client=$(az account show --query user.name -o tsv)
+          actual_type=$(az account show --query user.type -o tsv)
+          [[ "${actual_subscription,,}" == "${AZURE_SUBSCRIPTION_ID,,}" ]]
+          [[ "${actual_tenant,,}" == "${AZURE_TENANT_ID,,}" ]]
+          [[ "${actual_client,,}" == "${AZURE_CLIENT_ID,,}" ]]
+          [[ "$actual_type" == "servicePrincipal" ]]
+          az account show --query '{nom:name, etat:state}' -o table
+          echo "Connexion OIDC à Azure confirmée pour preprod."
+          {
+            echo '### Test de connexion Azure'
+            echo '- Authentification OIDC réussie avec le principal de service attendu.'
+            echo '- Abonnement et annuaire conformes aux variables de preprod.'
+            echo '- Aucune ressource créée ; aucune commande Terraform exécutée.'
+          } >> "$GITHUB_STEP_SUMMARY"
