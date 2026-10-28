@@ -59,3 +59,5 @@ crash.log
 crash.*.log
 *.local.tfvars
 *.local.tfvars.json
+# Sortie textuelle du plan : peut contenir des données d'infrastructure.
+preprod-plan.txt

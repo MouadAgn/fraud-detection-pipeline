@@ -1,18 +1,22 @@
-name: "Préprod - Tester la connexion Azure OIDC"
+name: "Préprod - Terraform plan"
 
-# Déclenchement manuel uniquement, sans plan ni déploiement Terraform.
+# Déclenchement manuel uniquement : connexion, validation et plan, sans apply.
 on:
   workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: terraform-preprod
+  cancel-in-progress: false
+
 jobs:
   test-azure-login:
-    name: Vérifier la connexion à Azure
+    name: Vérifier Azure et préparer le plan Terraform
     if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     # Ce nom doit correspondre au subject de la confiance OIDC dans Entra.
     environment: preprod
     permissions:
@@ -23,7 +27,32 @@ jobs:
       AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
       AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
+      ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+      ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      ARM_USE_OIDC: "true"
+      ARM_USE_AZUREAD: "true"
+      ARM_USE_CLI: "false"
+      TF_VAR_subscription_id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      TF_IN_AUTOMATION: "true"
+      TF_INPUT: "false"
+    defaults:
+      run:
+        shell: bash
+        working-directory: infra/terraform
+
     steps:
+      - name: Récupérer les fichiers du dépôt
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Installer Terraform
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
+        with:
+          terraform_version: 1.17.0
+          terraform_wrapper: false
+
       - name: Vérifier les trois variables de preprod
         shell: bash
         run: |
@@ -61,5 +90,30 @@ jobs:
             echo '### Test de connexion Azure'
             echo '- Authentification OIDC réussie avec le principal de service attendu.'
             echo '- Abonnement et annuaire conformes aux variables de preprod.'
-            echo '- Aucune ressource créée ; aucune commande Terraform exécutée.'
+            echo '- Test de connexion terminé ; les étapes Terraform suivent.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Vérifier le format Terraform
+        run: terraform fmt -check -recursive
+
+      - name: Connecter Terraform au backend Azure
+        run: terraform init -input=false -lockfile=readonly
+
+      - name: Valider la configuration Terraform
+        run: terraform validate -no-color
+
+      - name: Préparer le plan de préproduction sans appliquer
+        run: |
+          set -euo pipefail
+          terraform plan -input=false -lock-timeout=120s -no-color \
+            -var-file=environments/preprod.tfvars -out=preprod.tfplan
+          terraform show -no-color preprod.tfplan > preprod-plan.txt
+          {
+            echo '### Plan Terraform de préproduction'
+            echo 'Plan préparé uniquement : aucun apply exécuté.'
+            echo 'Le groupe existant est proposé à l’import ; ACR reste à créer.'
+            echo 'Consulter les logs de cette étape pour le plan complet.'
+            echo '```text'
+            tail -n 25 preprod-plan.txt
+            echo '```'
           } >> "$GITHUB_STEP_SUMMARY"

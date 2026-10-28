@@ -49,3 +49,44 @@ OIDC doivent correspondre exactement. Ne pas partager de jetons d'accès.
 
 La prochaine étape ajoutera Terraform et traitera l'import du groupe
 `rg-fraud-preprod`, déjà créé manuellement, avant tout apply.
+
+## Étape suivante : Terraform plan (sans création)
+
+Le même fichier de workflow s'appelle désormais **Préprod - Terraform plan**.
+Il reste manuel et limité à `main` et à l'environnement `preprod`.
+
+Après le test de connexion, il récupère le code, installe Terraform 1.17.0,
+vérifie le format, initialise le backend distant, valide et prépare un plan.
+Les variables ARM indiquent au backend et au fournisseur AzureRM d'utiliser
+OIDC ; la session Azure CLI sert au test d'identité, pas de clé partagée.
+Les exécutions préprod sont sérialisées pour éviter les opérations concurrentes.
+
+`infra/terraform/imports.tf` déclare l'import du groupe `rg-fraud-preprod`
+créé manuellement. Ce bloc ne recrée pas le groupe. Le plan décrit l'import,
+mais son enregistrement définitif dans l'état ne se fera qu'au futur apply.
+Le plan peut aussi proposer de mettre à jour les tags du groupe pour qu'ils
+correspondent au code, et de créer un registre ACR Basic.
+
+Le backend peut écrire un état initial vide et prend un verrou durant le plan ;
+cela ne crée pas ACR et ne modifie pas les ressources prévues par le plan.
+Aucun `terraform apply` ou `terraform import` CLI n'est exécuté dans ce workflow.
+Le plan binaire et sa version texte restent sur la machine temporaire GitHub ;
+ils ne sont pas publiés comme artefacts. Le futur apply nécessitera un nouveau
+plan revu ou une chaîne distincte avec conservation contrôlée du plan validé.
+
+Pour exécuter : **Actions → Préprod - Terraform plan → Run workflow → main**.
+Lire l'étape **Préparer le plan de préproduction sans appliquer** et son résumé.
+Le premier résultat attendu est 1 groupe à importer, 1 ACR à créer et, selon
+les tags existants, une modification du groupe. Aucune suppression attendue.
+
+### Subject OIDC réellement observé
+
+Le test GitHub a révélé un subject incluant les identifiants du propriétaire
+et du dépôt. La confiance Azure a été corrigée pour correspondre exactement à :
+
+```text
+repo:MouadAgn@103049879/fraud-detection-pipeline@1315509705:environment:preprod
+```
+
+Ce subject remplace l'exemple sans identifiants donné plus haut. Toujours
+comparer le subject réel dans les logs de connexion avec la règle Entra.

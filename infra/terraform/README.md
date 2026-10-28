@@ -14,6 +14,7 @@ Le registre ne sera pas automatiquement rempli : le push de l'image viendra apr�
 - `providers.tf` : connexion à Azure avec la session Azure CLI existante.
 - `variables.tf` : abonnement, région et environnement à renseigner.
 - `main.tf` : description du groupe de ressources et du registre.
+- `imports.tf` : reconnaissance du groupe préprod déjà créé avec Azure CLI.
 - `outputs.tf` : noms/adresse du registre à récupérer après création.
 - `environments/*.tfvars` : réglages pour préprod et prod.
 - `.terraform.lock.hcl` : version et empreintes du fournisseur, conservées dans Git.
@@ -37,7 +38,8 @@ terraform plan -var-file=environments/preprod.tfvars \
 ```
 
 `plan` lit Azure et prépare un plan local. Aucun `apply` n'est lancé. Le résultat
-attendu sur un abonnement vierge est **2 créations, 0 modification, 0 suppression**.
+attendu en préprod est **1 groupe à importer, 1 registre à créer**, avec une
+éventuelle mise à jour des tags du groupe et **aucune suppression**.
 Vérifier l'abonnement, la région, les noms et le niveau Basic avant de continuer.
 ACR est une ressource facturable : vérifier la tarification et l'application de
 l'offre gratuite/crédit de l'abonnement avant toute création.
