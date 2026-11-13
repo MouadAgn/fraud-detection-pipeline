@@ -1,0 +1,120 @@
+name: "Prod - Terraform plan"
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: terraform-prod
+  cancel-in-progress: false
+
+jobs:
+  test-azure-login:
+    name: Vérifier Azure et préparer le plan Terraform
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    # Ce nom doit correspondre au subject de la confiance OIDC dans Entra.
+    environment: prod
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+      ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      ARM_USE_OIDC: "true"
+      ARM_USE_AZUREAD: "true"
+      ARM_USE_CLI: "false"
+      TF_VAR_subscription_id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      TF_IN_AUTOMATION: "true"
+      TF_INPUT: "false"
+    defaults:
+      run:
+        shell: bash
+        working-directory: infra/terraform
+
+    steps:
+      - name: Récupérer les fichiers du dépôt
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Installer Terraform
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
+        with:
+          terraform_version: 1.17.0
+          terraform_wrapper: false
+
+      - name: Vérifier les trois variables de prod
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in AZURE_CLIENT_ID AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID; do
+            value="${!name}"
+            if [[ ! "$value" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]]; then
+              echo "::error::La variable $name est absente ou n'est pas un UUID valide dans prod."
+              exit 1
+            fi
+          done
+
+      - name: Se connecter à Azure sans mot de passe
+        uses: azure/login@v3.1.0
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Confirmer l'abonnement et l'identité utilisés
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual_subscription=$(az account show --query id -o tsv)
+          actual_tenant=$(az account show --query tenantId -o tsv)
+          actual_client=$(az account show --query user.name -o tsv)
+          actual_type=$(az account show --query user.type -o tsv)
+          [[ "${actual_subscription,,}" == "${AZURE_SUBSCRIPTION_ID,,}" ]]
+          [[ "${actual_tenant,,}" == "${AZURE_TENANT_ID,,}" ]]
+          [[ "${actual_client,,}" == "${AZURE_CLIENT_ID,,}" ]]
+          [[ "$actual_type" == "servicePrincipal" ]]
+          az account show --query '{nom:name, etat:state}' -o table
+          echo "Connexion OIDC à Azure confirmée pour prod."
+          {
+            echo '### Test de connexion Azure'
+            echo '- Authentification OIDC réussie avec le principal de service attendu.'
+            echo '- Abonnement et annuaire conformes aux variables de prod.'
+            echo '- Test de connexion terminé ; les étapes Terraform suivent.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Vérifier le format Terraform
+        run: terraform fmt -check -recursive
+
+      - name: Connecter Terraform au backend Azure
+        run: >-
+          terraform init -input=false -lockfile=readonly -reconfigure
+          -backend-config=container_name=tfstate-prod
+          -backend-config=key=prod.tfstate
+
+      - name: Valider la configuration Terraform
+        run: terraform validate -no-color
+
+      - name: Préparer le plan de production sans appliquer
+        run: |
+          set -euo pipefail
+          terraform plan -input=false -lock-timeout=120s -no-color \
+            -var-file=environments/prod.tfvars -out="$RUNNER_TEMP/prod.tfplan"
+          terraform show -no-color "$RUNNER_TEMP/prod.tfplan" > "$RUNNER_TEMP/prod-plan.txt"
+          {
+            echo '### Plan Terraform de production'
+            echo 'Plan uniquement : aucun déploiement exécuté.'
+            echo 'Consulter les logs de cette étape pour le plan complet.'
+            echo '```text'
+            tail -n 25 "$RUNNER_TEMP/prod-plan.txt"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
