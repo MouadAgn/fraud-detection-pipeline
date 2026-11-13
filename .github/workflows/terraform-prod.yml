@@ -1,7 +1,13 @@
-name: "Prod - Terraform plan"
+name: "Prod - Terraform plan ou apply"
 
 on:
   workflow_dispatch:
+    inputs:
+      apply:
+        description: "Appliquer le plan de production (ressources Azure facturables)"
+        type: boolean
+        required: true
+        default: false
 
 permissions:
   contents: read
@@ -112,9 +118,13 @@ jobs:
           terraform show -no-color "$RUNNER_TEMP/prod.tfplan" > "$RUNNER_TEMP/prod-plan.txt"
           {
             echo '### Plan Terraform de production'
-            echo 'Plan uniquement : aucun déploiement exécuté.'
+            echo 'Application du plan uniquement si demandée au lancement.'
             echo 'Consulter les logs de cette étape pour le plan complet.'
             echo '```text'
             tail -n 25 "$RUNNER_TEMP/prod-plan.txt"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Appliquer le plan de production
+        if: ${{ inputs.apply == true }}
+        run: terraform apply -input=false -lock-timeout=120s -no-color "$RUNNER_TEMP/prod.tfplan"
