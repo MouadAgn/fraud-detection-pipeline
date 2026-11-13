@@ -42,7 +42,15 @@ jobs:
       - name: Tester la disponibilité et une prédiction
         run: |
           docker run -d --name fraud-api-test -p 127.0.0.1:8000:8000 "$IMAGE"
-          trap 'docker rm -f fraud-api-test >/dev/null' EXIT
+          cleanup() {
+            local status=$?
+            if (( status != 0 )); then
+              docker logs --tail 80 fraud-api-test || true
+            fi
+            docker rm -f fraud-api-test >/dev/null || true
+            return "$status"
+          }
+          trap cleanup EXIT
           python3 - <<'PY'
           import json
           import math
@@ -56,7 +64,7 @@ jobs:
                   with urlopen(base + "/ready", timeout=3) as response:
                       ready = json.load(response)
                   break
-              except (URLError, TimeoutError):
+              except (URLError, TimeoutError, ConnectionResetError):
                   time.sleep(2)
           else:
               raise SystemExit("API non prête")
