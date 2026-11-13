@@ -24,3 +24,9 @@ variable "location" {
   type        = string
   default     = "francecentral"
 }
+
+variable "fraud_api_image_tag" {
+  description = "Tag de l'image fraud-api à déployer."
+  type        = string
+  default     = "v1"
+}

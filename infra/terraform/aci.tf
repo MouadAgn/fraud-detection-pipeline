@@ -26,7 +26,7 @@ resource "azurerm_container_group" "fraud_api_preprod" {
 
   container {
     name   = "fraud-api"
-    image  = "${azurerm_container_registry.fraud.login_server}/fraud-api:v1"
+    image  = "${azurerm_container_registry.fraud.login_server}/fraud-api:${var.fraud_api_image_tag}"
     cpu    = 1
     memory = 2
   }
