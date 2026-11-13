@@ -1,0 +1,82 @@
+name: Préprod - Publier l’image Docker
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    environment: preprod
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      ACR_NAME: acrfraudpreproda02e82e99c
+      IMAGE: acrfraudpreproda02e82e99c.azurecr.io/fraud-api:ci-${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Connexion Azure par OIDC
+        uses: azure/login@v3.1.0
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Télécharger et vérifier le modèle
+        run: |
+          archive="$RUNNER_TEMP/api_bundle.zip"
+          az storage blob download --account-name stfraudtfmouad221026 \
+            --container-name model-artifacts --name fraud-api/v1/api_bundle.zip \
+            --file "$archive" --auth-mode login --only-show-errors -o none
+          echo "003752762829cf842641fc178860edc1fcc9bf1d65a26326c7ccb52dddf35b61  $archive" | sha256sum --check
+          mkdir -p data
+          unzip -q "$archive" -d data
+      - name: Construire l’image Linux amd64
+        run: docker build --platform linux/amd64 --tag "$IMAGE" .
+      - name: Tester la disponibilité et une prédiction
+        run: |
+          docker run -d --name fraud-api-test -p 127.0.0.1:8000:8000 "$IMAGE"
+          trap 'docker rm -f fraud-api-test >/dev/null' EXIT
+          python3 - <<'PY'
+          import json
+          import math
+          import time
+          from urllib.error import URLError
+          from urllib.request import Request, urlopen
+
+          base = "http://127.0.0.1:8000"
+          for _ in range(45):
+              try:
+                  with urlopen(base + "/ready", timeout=3) as response:
+                      ready = json.load(response)
+                  break
+              except (URLError, TimeoutError):
+                  time.sleep(2)
+          else:
+              raise SystemExit("API non prête")
+          assert ready["status"] == "ready" and ready["model_version"] == "4", ready
+
+          transaction_id = "00005fc67bb45d98730559d40c9ca601"
+          request = Request(
+              base + "/predict",
+              data=json.dumps({"transaction_id": transaction_id}).encode(),
+              headers={"Content-Type": "application/json"},
+          )
+          with urlopen(request, timeout=10) as response:
+              result = json.load(response)
+          assert result["transaction_id"] == transaction_id, result
+          assert result["model_version"] == "4" and result["is_flagged"] is False, result
+          assert math.isclose(result["fraud_score"], 0.00002595733167254366, rel_tol=1e-4), result
+          print("Prédiction de référence validée.")
+          PY
+      - name: Publier dans ACR
+        run: |
+          az acr login --name "$ACR_NAME"
+          docker push "$IMAGE"
+          echo "Image publiée : $IMAGE" >> "$GITHUB_STEP_SUMMARY"
