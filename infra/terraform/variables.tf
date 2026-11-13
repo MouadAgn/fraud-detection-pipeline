@@ -30,3 +30,14 @@ variable "fraud_api_image_tag" {
   type        = string
   default     = "v1"
 }
+
+variable "fraud_api_prod_digest" {
+  description = "Empreinte SHA-256 de l'image validée et copiée dans ACR prod."
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.environment != "prod" || can(regex("^sha256:[0-9a-f]{64}$", var.fraud_api_prod_digest))
+    error_message = "La prod exige un digest d'image au format sha256 suivi de 64 caractères hexadécimaux."
+  }
+}
