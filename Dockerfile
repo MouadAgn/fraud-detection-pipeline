@@ -24,7 +24,8 @@ RUN python -m pip install -r /tmp/model-requirements.txt -r /tmp/api-requirement
 
 # Copier seulement le service et l'export, pas les notebooks ni les données brutes.
 COPY src/fraud_api/ /app/src/fraud_api/
-COPY data/api_bundle/ /app/data/api_bundle/
+# Le ZIP MLflow contient des dossiers 0700 : l'utilisateur de l'API doit en être propriétaire.
+COPY --chown=10001:10001 data/api_bundle/ /app/data/api_bundle/
 
 RUN groupadd --gid 10001 api \
     && useradd --uid 10001 --gid api --no-log-init --create-home api
